@@ -32,8 +32,8 @@
 		21244FCE2E4AA490007AA98E = {
 			isa = PBXGroup;
 			children = (
-				21244FD92E4AA490007AA98E /* SwiftMasteryGuide */,
 				21244FD82E4AA490007AA98E /* Products */,
+				21244FD92E4AA490007AA98E /* SwiftMasteryGuide */,
 			);
 			sourceTree = "<group>";
 		};
