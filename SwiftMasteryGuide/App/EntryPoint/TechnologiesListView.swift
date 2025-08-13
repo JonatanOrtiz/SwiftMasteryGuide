@@ -10,6 +10,7 @@ import SwiftUI
 struct TechnologiesListView: View {
     private enum Technology: String, CaseIterable, Identifiable {
         case coreHaptics = "Core Haptics"
+        case coreMLLiveClassification = "Core ML"
         var id: String { rawValue }
     }
 
@@ -18,11 +19,22 @@ struct TechnologiesListView: View {
     var body: some View {
         NavigationView {
             List(items) { tech in
-                NavigationLink(destination: CoreHapticsGuideView()) {
+                NavigationLink(destination: destination(for: tech)) {
                     Text(tech.rawValue)
                 }
+                .accessibilityLabel("Abrir guia de \(tech.rawValue)")
             }
             .navigationTitle("Swift Mastery Guide")
+        }
+    }
+
+    @ViewBuilder
+    private func destination(for tech: Technology) -> some View {
+        switch tech {
+            case .coreHaptics:
+                CoreHapticsGuideView()
+            case .coreMLLiveClassification:
+                CoreMLFeaturesListView()
         }
     }
 }
