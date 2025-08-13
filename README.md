@@ -8,7 +8,7 @@ It contains step-by-step guides and fully working examples, making it a practica
 - **Step-by-Step Guides**  
   Each technology is explained with clear instructions, key concepts, and best practices.
 
-- **Interactive Code Examples**  
+- **Code Examples**  
   Every guide comes with fully functional code that you can explore and adapt.
 
 - **Interactive demonstrations**  
