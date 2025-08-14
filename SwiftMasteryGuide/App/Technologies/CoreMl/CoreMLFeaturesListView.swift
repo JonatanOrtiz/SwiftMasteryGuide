@@ -9,18 +9,18 @@ import SwiftUI
 
 struct CoreMLFeaturesListView: View {
     private enum CoreMLFeature: String, CaseIterable, Identifiable {
-        case imageClassification = "ImageClassification"
-        case objectDetection = "ObjectDetection"
-        case imageSegmentation = "ImageSegmentation"
-        case faceAndExpressionRecognition = "FaceAndExpressionRecognition"
-        case textRecognition = "TextRecognition" // OCR
-        case speechToText = "SpeechToText"
-        case soundClassification = "SoundClassification"
-        case speechSentimentAnalysis = "SpeechSentimentAnalysis"
-        case textSentimentAnalysis = "TextSentimentAnalysis"
-        case machineTranslation = "MachineTranslation"
-        case augmentedRealityFilters = "AugmentedRealityFilters"
-        case onDeviceAssistants = "OnDeviceAssistants"
+        case imageClassification = "Image Classification"
+        case objectDetection = "Object Detection"
+        case imageSegmentation = "Image Segmentation"
+        case faceAndExpressionRecognition = "Face And Expression Recognition"
+        case textRecognition = "Text Recognition" // OCR
+        case speechToText = "Speech To Text"
+        case soundClassification = "Sound Classification"
+        case speechSentimentAnalysis = "Speech Sentiment Analysis"
+        case textSentimentAnalysis = "Text Sentiment Analysis"
+        case machineTranslation = "Machine Translation"
+        case augmentedRealityFilters = "Augmented Reality Filters"
+        case onDeviceAssistants = "On Device Assistants"
 
         var id: String { rawValue }
     }
@@ -59,7 +59,7 @@ struct CoreMLFeaturesListView: View {
                 ComingSoonView(featureName: feature.rawValue)
 
             case .speechToText:
-                ComingSoonView(featureName: feature.rawValue)
+                SpeechToTextGuideView()
 
             case .soundClassification:
                 ComingSoonView(featureName: feature.rawValue)

@@ -10,7 +10,7 @@ import SwiftUI
 struct TechnologiesListView: View {
     private enum Technology: String, CaseIterable, Identifiable {
         case coreHaptics = "Core Haptics"
-        case coreMLLiveClassification = "Core ML"
+        case coreML = "Core ML"
         var id: String { rawValue }
     }
 
@@ -33,7 +33,7 @@ struct TechnologiesListView: View {
         switch tech {
             case .coreHaptics:
                 CoreHapticsGuideView()
-            case .coreMLLiveClassification:
+            case .coreML:
                 CoreMLFeaturesListView()
         }
     }
