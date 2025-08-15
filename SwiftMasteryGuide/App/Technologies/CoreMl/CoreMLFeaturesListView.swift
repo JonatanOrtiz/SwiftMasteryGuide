@@ -17,7 +17,6 @@ struct CoreMLFeaturesListView: View {
         case speechToText = "Speech To Text"
         case soundClassification = "Sound Classification"
         case speechSentimentAnalysis = "Speech Sentiment Analysis"
-        case textSentimentAnalysis = "Text Sentiment Analysis"
         case machineTranslation = "Machine Translation"
         case augmentedRealityFilters = "Augmented Reality Filters"
         case onDeviceAssistants = "On Device Assistants"
@@ -65,9 +64,6 @@ struct CoreMLFeaturesListView: View {
                 ComingSoonView(featureName: feature.rawValue)
 
             case .speechSentimentAnalysis:
-                ComingSoonView(featureName: feature.rawValue)
-
-            case .textSentimentAnalysis:
                 ComingSoonView(featureName: feature.rawValue)
 
             case .machineTranslation:

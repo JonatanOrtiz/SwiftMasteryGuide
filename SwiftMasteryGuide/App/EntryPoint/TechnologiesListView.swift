@@ -11,6 +11,7 @@ struct TechnologiesListView: View {
     private enum Technology: String, CaseIterable, Identifiable {
         case coreHaptics = "Core Haptics"
         case coreML = "Core ML"
+        case textSentimentAnalysis = "Text Sentiment Analysis"
         var id: String { rawValue }
     }
 
@@ -35,6 +36,8 @@ struct TechnologiesListView: View {
                 CoreHapticsGuideView()
             case .coreML:
                 CoreMLFeaturesListView()
+            case .textSentimentAnalysis:
+                TextSentimentAnalysisGuideView()
         }
     }
 }
