@@ -31,62 +31,56 @@ private struct MutablePeripheral {
 
 final class BluetoothScannerViewModel: NSObject, ObservableObject {
 
-    // MARK: - Published UI state
     @Published var stateText: String = "Waiting for Bluetooth…"
     @Published var items: [DiscoveredPeripheral] = []
     @Published var sortBySignal: Bool = false
 
-    // MARK: - CoreBluetooth
     private var central: CBCentralManager?
-
-    // MARK: - State
     private var seen: [UUID: MutablePeripheral] = [:]
-    private var order: [UUID] = [] // stable order: first seen
-    private let rssiAlpha: Double = 0.25 // EMA factor
+    private var order: [UUID] = []
+    private let rssiAlpha: Double = 0.25
     private var lastUIRefresh: CFAbsoluteTime = 0
-    private let minUIRefreshInterval: CFTimeInterval = 0.5 // throttle UI updates
+    private let minUIRefreshInterval: CFTimeInterval = 0.5
     private var lastResortTime: CFAbsoluteTime = 0
     private let minResortInterval: CFTimeInterval = 2.0
 
-    // Keep CBPeripheral references so we can open the detail
     private var peripheralById: [UUID: CBPeripheral] = [:]
+    private var isScanning = false
 
     override init() {
         super.init()
-        central = CBCentralManager(
-            delegate: self,
-            queue: nil
-        )
+        central = CBCentralManager(delegate: self, queue: nil)
     }
 
     func startScanning() {
-        guard let central else { return }
-        if central.state == .poweredOn {
-            central.scanForPeripherals(
-                withServices: nil,
-                options: [
-                    CBCentralManagerScanOptionAllowDuplicatesKey: true
-                ]
-            )
-            stateText = "Scanning…"
-        }
+        guard let central, central.state == .poweredOn else { return }
+        isScanning = true
+        central.scanForPeripherals(
+            withServices: nil,
+            options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+        )
+        stateText = "Scanning…"
     }
 
     func stopScanning() {
         central?.stopScan()
+        isScanning = false
         stateText = "Stopped"
+
+        seen.removeAll()
+        order.removeAll()
+        peripheralById.removeAll()
+
+        DispatchQueue.main.async { [weak self] in
+            self?.items = []
+        }
     }
 
-    func cbPeripheral(
-        for id: UUID
-    ) -> CBPeripheral? {
+    func cbPeripheral(for id: UUID) -> CBPeripheral? {
         peripheralById[id]
     }
 
-    // MARK: - UI assembly (throttled)
-    private func rebuildItemsIfNeeded(
-        force: Bool = false
-    ) {
+    private func rebuildItemsIfNeeded(force: Bool = false) {
         let now = CFAbsoluteTimeGetCurrent()
         guard force || (now - lastUIRefresh) >= minUIRefreshInterval else { return }
         lastUIRefresh = now
@@ -99,10 +93,10 @@ final class BluetoothScannerViewModel: NSObject, ObservableObject {
                     .sorted { $0.value.smoothedRSSI > $1.value.smoothedRSSI }
                     .map { $0.key }
             } else {
-                ids = items.map { $0.id } // keep current order
+                ids = items.map { $0.id }
             }
         } else {
-            ids = order // first‑seen stable order
+            ids = order
         }
 
         var out: [DiscoveredPeripheral] = []
@@ -127,11 +121,7 @@ final class BluetoothScannerViewModel: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - EMA smoothing
-    private func smoothRSSI(
-        previous: Double?,
-        new: Int
-    ) -> Double {
+    private func smoothRSSI(previous: Double?, new: Int) -> Double {
         let p = previous ?? Double(new)
         return rssiAlpha * Double(new) + (1 - rssiAlpha) * p
     }
@@ -139,25 +129,15 @@ final class BluetoothScannerViewModel: NSObject, ObservableObject {
 
 extension BluetoothScannerViewModel: CBCentralManagerDelegate {
 
-    func centralManagerDidUpdateState(
-        _ central: CBCentralManager
-    ) {
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
-            case .unknown:
-                stateText = "Bluetooth state: unknown"
-            case .resetting:
-                stateText = "Bluetooth is resetting…"
-            case .unsupported:
-                stateText = "Bluetooth LE is unsupported on this device"
-            case .unauthorized:
-                stateText = "Bluetooth permission is not granted"
-            case .poweredOff:
-                stateText = "Bluetooth is OFF"
-            case .poweredOn:
-                stateText = "Bluetooth is ON"
-                startScanning()
-            @unknown default:
-                stateText = "Bluetooth state: unexpected"
+            case .unknown: stateText = "Bluetooth state: unknown"
+            case .resetting: stateText = "Bluetooth is resetting…"
+            case .unsupported: stateText = "Bluetooth LE is unsupported on this device"
+            case .unauthorized: stateText = "Bluetooth permission is not granted"
+            case .poweredOff: stateText = "Bluetooth is OFF"
+            case .poweredOn: stateText = "Bluetooth is ON"
+            @unknown default: stateText = "Bluetooth state: unexpected"
         }
     }
 
@@ -167,12 +147,13 @@ extension BluetoothScannerViewModel: CBCentralManagerDelegate {
         advertisementData: [String : Any],
         rssi RSSI: NSNumber
     ) {
+        guard isScanning else { return }
+
         let name: String = peripheral.name
         ?? (advertisementData[CBAdvertisementDataLocalNameKey] as? String)
         ?? "Unknown"
 
-        let isConnectable: Bool = (advertisementData[CBAdvertisementDataIsConnectable] as? NSNumber)?.boolValue ?? false
-
+        let isConnectable = (advertisementData[CBAdvertisementDataIsConnectable] as? NSNumber)?.boolValue ?? false
         var services: [CBUUID] = (advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID]) ?? []
         if let overflow = advertisementData[CBAdvertisementDataOverflowServiceUUIDsKey] as? [CBUUID] {
             services.append(contentsOf: overflow)
@@ -193,16 +174,10 @@ extension BluetoothScannerViewModel: CBCentralManagerDelegate {
             existing.hasServiceData = (serviceData?.isEmpty == false)
             existing.hasManufacturerData = (manufacturerData?.isEmpty == false)
             existing.lastRawRSSI = newRssi
-            existing.smoothedRSSI = smoothRSSI(
-                previous: existing.smoothedRSSI,
-                new: newRssi
-            )
+            existing.smoothedRSSI = smoothRSSI(previous: existing.smoothedRSSI, new: newRssi)
             seen[id] = existing
         } else {
-            let smoothed = smoothRSSI(
-                previous: nil,
-                new: newRssi
-            )
+            let smoothed = smoothRSSI(previous: nil, new: newRssi)
             seen[id] = MutablePeripheral(
                 id: id,
                 name: name,

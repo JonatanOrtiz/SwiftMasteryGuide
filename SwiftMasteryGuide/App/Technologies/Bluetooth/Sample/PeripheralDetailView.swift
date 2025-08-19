@@ -53,7 +53,7 @@ struct PeripheralDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .accessibilityLabel("Connect to peripheral")
 
-                    Button("Disconnect") {
+                    Button("Close GATT Connection") {
                         connector.disconnect()
                     }
                     .padding(.vertical, 10)
@@ -62,7 +62,7 @@ struct PeripheralDetailView: View {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color.dividerColor, lineWidth: 1)
                     )
-                    .accessibilityLabel("Disconnect from peripheral")
+                    .accessibilityLabel("Close GATT session with peripheral")
                 }
 
                 DividerLine()

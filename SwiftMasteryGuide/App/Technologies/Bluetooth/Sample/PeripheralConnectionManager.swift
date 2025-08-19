@@ -30,7 +30,7 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
     private var wantsConnect: Bool = false
     private var notifyingCharacteristics = Set<ObjectIdentifier>()
     private var connectionTimeoutTimer: Timer?
-
+    private var isDisconnecting = false
     private let connectionTimeoutSeconds: TimeInterval = 8.0
 
     override init() {
@@ -60,21 +60,25 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
     func connectIfNeeded() {
         guard let p = peripheral, let c = central else { return }
 
-        // If iOS already attached the controller at HID level, p.state can still be .disconnected for GATT.
-        // Try to connect, but we will timeout and hint HID if GATT never opens.
         wantsConnect = true
-
-        if p.state == .connected {
-            stateText = "Connected"
-            p.discoverServices(nil)
-            return
-        }
 
         switch c.state {
             case .poweredOn:
-                stateText = "Connecting…"
-                c.connect(p, options: [CBConnectPeripheralOptionNotifyOnConnectionKey: true])
-                startConnectionTimeout()
+                if p.state == .connected {
+                    stateText = "Connected"
+                    p.discoverServices(nil)
+                } else if p.state == .connecting {
+                    stateText = "Connecting…"
+                } else {
+                    stateText = "Waiting for pairing…"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        if p.state == .disconnected {
+                            self.stateText = "Connecting…"
+                            c.connect(p, options: [CBConnectPeripheralOptionNotifyOnConnectionKey: true])
+                            self.startConnectionTimeout()
+                        }
+                    }
+                }
             case .poweredOff:
                 stateText = "Bluetooth is OFF"
             case .unauthorized:
@@ -91,15 +95,23 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
     }
 
     func disconnect() {
-        guard let p = peripheral, let c = central else { return }
+        guard let c = central else { return }
+
+        isDisconnecting = true
         wantsConnect = false
-        c.cancelPeripheralConnection(p)
-        stateText = "Disconnected"
+
+        if let p = peripheral {
+            c.cancelPeripheralConnection(p)
+        }
+
+        stateText = "Closing GATT connection…"
         stopConnectionTimeout()
     }
 
     func teardown() {
-        disconnect()
+        if !isDisconnecting {
+            disconnect()
+        }
         peripheral?.delegate = nil
         peripheral = nil
         discoveredServices.removeAll()
@@ -114,15 +126,12 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
     }
 
     func toggleNotify(for ch: CBCharacteristic) {
-        guard let p = peripheral else { return }
-        p.setNotifyValue(!isNotifying(ch), for: ch)
+        peripheral?.setNotifyValue(!isNotifying(ch), for: ch)
     }
 
     func read(_ ch: CBCharacteristic) {
         peripheral?.readValue(for: ch)
     }
-
-    // MARK: - Private
 
     private func appendHex(_ data: Data?, prefix: String) {
         guard let d = data, !d.isEmpty else { return }
@@ -138,7 +147,7 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
             case .disconnected: return "Disconnected"
             case .connecting:   return "Connecting…"
             case .connected:    return "Connected"
-            case .disconnecting:return "Disconnecting…"
+            case .disconnecting:return "Closing GATT connection…"
             @unknown default:   return "Unknown"
         }
     }
@@ -187,7 +196,9 @@ extension PeripheralConnectionManager: @preconcurrency CBCentralManagerDelegate 
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
         stopConnectionTimeout()
-        stateText = "Disconnected"
+        stateText = "GATT connection closed"
+        showHIDHint = false
+        isDisconnecting = false
     }
 }
 
