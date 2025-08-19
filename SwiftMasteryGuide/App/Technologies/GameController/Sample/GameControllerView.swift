@@ -5,20 +5,6 @@
 //  Created by Jonatan Ortiz on 19/08/25.
 //
 
-//
-//  GameControllerView.swift
-//  SwiftMasteryGuide
-//
-//  Created by Jonatan Ortiz on 19/08/25.
-//
-
-//
-//  GameControllerView.swift
-//  SwiftMasteryGuide
-//
-//  Created by Jonatan Ortiz on 19/08/25.
-//
-
 import SwiftUI
 import GameController
 
