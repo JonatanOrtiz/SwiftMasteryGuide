@@ -12,6 +12,7 @@ struct TechnologiesListView: View {
         case coreHaptics = "Core Haptics"
         case coreML = "Core ML"
         case textSentimentAnalysis = "Text Sentiment Analysis"
+        case Bluetooth = "Bluetooth"
         var id: String { rawValue }
     }
 
@@ -38,6 +39,8 @@ struct TechnologiesListView: View {
                 CoreMLFeaturesListView()
             case .textSentimentAnalysis:
                 TextSentimentAnalysisGuideView()
+            case .Bluetooth:
+                BluetoothGuideView()
         }
     }
 }
