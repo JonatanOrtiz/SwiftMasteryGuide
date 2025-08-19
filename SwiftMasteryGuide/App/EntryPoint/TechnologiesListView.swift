@@ -43,7 +43,7 @@ struct TechnologiesListView: View {
             case .bluetoothScanner:
                 BluetoothGuideView()
             case .gameController:
-                GameControllerView()
+                GameControllerGuideView()
         }
     }
 }
