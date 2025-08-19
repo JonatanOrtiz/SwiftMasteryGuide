@@ -101,10 +101,22 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
         wantsConnect = false
 
         if let p = peripheral {
-            c.cancelPeripheralConnection(p)
+            if p.state == .connected || p.state == .connecting {
+                c.cancelPeripheralConnection(p)
+                stateText = "Closing GATT connection…"
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                    guard let self = self else { return }
+                    if self.isDisconnecting {
+                        self.stateText = "Disconnected"
+                        self.isDisconnecting = false
+                    }
+                }
+            } else {
+                self.centralManager(c, didDisconnectPeripheral: p, error: nil)
+            }
         }
 
-        stateText = "Closing GATT connection…"
         stopConnectionTimeout()
     }
 
