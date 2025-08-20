@@ -70,7 +70,7 @@ struct CoreMLFeaturesListView: View {
                 ComingSoonView(featureName: feature.rawValue)
 
             case .augmentedRealityFilters:
-                ComingSoonView(featureName: feature.rawValue)
+                ARBubblesDemoScreen()
 
             case .onDeviceAssistants:
                 ComingSoonView(featureName: feature.rawValue)
