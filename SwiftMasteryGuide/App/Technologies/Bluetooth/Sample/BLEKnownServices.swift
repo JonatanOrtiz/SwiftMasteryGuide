@@ -55,12 +55,10 @@ enum BLEKnownServices {
         hasServiceData: Bool,
         hasManufacturerData: Bool
     ) -> BLELikelihood {
-
         let set = Set(services)
         let hid = CBUUID(string: "1812")
         let hasHID = set.contains(hid)
 
-        // Any clearly BLE sensor-style service present?
         let knownNonHID = set.contains(CBUUID(string: "180D")) || // Heart Rate
         set.contains(CBUUID(string: "180F")) || // Battery
         set.contains(CBUUID(string: "180A")) || // Device Info
@@ -68,23 +66,47 @@ enum BLEKnownServices {
         set.contains(CBUUID(string: "1816")) || // Cycling
         set.contains(CBUUID(string: "1814"))    // Running
 
-        // Strong BLE indicators
-        if knownNonHID && isConnectable { return .bleLikely }
-        if hasServiceData && isConnectable { return .bleLikely }
+        print("""
+    [BLELikelihood] Assessing likelihood:
+      Services: \(services.map(\.uuidString))
+      Is Connectable: \(isConnectable)
+      Has Service Data: \(hasServiceData)
+      Has Manufacturer Data: \(hasManufacturerData)
+      Has HID: \(hasHID)
+      Has Known Non-HID: \(knownNonHID)
+    """)
 
-        // HID-only patterns
-        if hasHID && !isConnectable { return .hidOnlyLikely }
-        if services.isEmpty && !isConnectable {
-            // Often Classic HID advert (or just manufacturer beacons)
+        if knownNonHID && isConnectable {
+            print("[BLELikelihood] ➜ Result: bleLikely (strong BLE indicators)")
+            return .bleLikely
+        }
+
+        if hasServiceData && isConnectable {
+            print("[BLELikelihood] ➜ Result: bleLikely (service data + connectable)")
+            return .bleLikely
+        }
+
+        if hasHID && !isConnectable {
+            print("[BLELikelihood] ➜ Result: hidOnlyLikely (only HID + not connectable)")
             return .hidOnlyLikely
         }
 
-        // Weak BLE indicators
-        if knownNonHID || hasServiceData { return .bleLikely }
+        if services.isEmpty && !isConnectable {
+            print("[BLELikelihood] ➜ Result: hidOnlyLikely (no services + not connectable)")
+            return .hidOnlyLikely
+        }
 
-        // Manufacturer data alone is not decisive, keep unknown unless connectable.
-        if hasManufacturerData && isConnectable { return .bleLikely }
+        if knownNonHID || hasServiceData {
+            print("[BLELikelihood] ➜ Result: bleLikely (weak BLE indicators)")
+            return .bleLikely
+        }
 
+        if hasManufacturerData && isConnectable {
+            print("[BLELikelihood] ➜ Result: bleLikely (manufacturer + connectable)")
+            return .bleLikely
+        }
+
+        print("[BLELikelihood] ➜ Result: unknown")
         return .unknown
     }
 }

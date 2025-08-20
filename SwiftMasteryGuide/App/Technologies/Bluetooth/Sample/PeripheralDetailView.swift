@@ -41,7 +41,6 @@ struct PeripheralDetailView: View {
 
                 HStack(spacing: 12) {
                     Button("Connect") {
-                        // Stop scanning before connecting to avoid contention
                         let vm = viewModelProvider()
                         vm.stopScanning()
                         connector.connectIfNeeded()
@@ -75,6 +74,7 @@ struct PeripheralDetailView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(BLEKnownServices.friendlyName(for: service.uuid))
                                 .font(.system(size: 16, weight: .semibold))
+
                             if let chars = connector.characteristicsByService[service.uuid] {
                                 ForEach(chars, id: \.uuid) { ch in
                                     HStack {
@@ -116,6 +116,13 @@ struct PeripheralDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 .frame(maxHeight: 240)
+
+                if connector.showHIDHint {
+                    DividerLine()
+                    Text("⚠️ This peripheral may be a HID-only device. On iOS, access to GATT is restricted for some devices.")
+                        .font(.footnote)
+                        .foregroundColor(.orange)
+                }
             }
             .padding(20)
         }
@@ -123,6 +130,9 @@ struct PeripheralDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             let vm = viewModelProvider()
+            if let c = vm.centralManager {
+                connector.bind(central: c)
+            }
             let cb = vm.cbPeripheral(for: peripheralId)
             connector.prepare(with: cb)
             vm.stopScanning()

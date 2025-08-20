@@ -21,7 +21,7 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
     @Published var meta: Meta?
     @Published var stateText: String = "Idle"
     @Published var discoveredServices: [CBService] = []
-    @Published var characteristicsByService: [CBUUID : [CBCharacteristic]] = [:]
+    @Published var characteristicsByService: [CBUUID: [CBCharacteristic]] = [:]
     @Published var hexLog: [String] = []
     @Published var showHIDHint: Bool = false
 
@@ -33,13 +33,11 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
     private var isDisconnecting = false
     private let connectionTimeoutSeconds: TimeInterval = 8.0
 
-    override init() {
-        super.init()
-        central = CBCentralManager(delegate: self, queue: nil)
-    }
+    // MARK: - Public Actions
 
     func prepare(with peripheral: CBPeripheral?) {
         guard let p = peripheral else {
+            log("prepare: peripheral is nil")
             stateText = "Peripheral unavailable"
             return
         }
@@ -48,86 +46,98 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
         meta = Meta(
             id: p.identifier,
             name: p.name ?? "Unknown",
-            advertisedServices: []
+            advertisedServices: [] // pode ajustar se quiser passar serviços
         )
         stateText = connectionStateText(for: p.state)
         showHIDHint = false
-        discoveredServices.removeAll()
-        characteristicsByService.removeAll()
-        hexLog.removeAll()
+        discoveredServices = []
+        characteristicsByService = [:]
+        hexLog = []
+        log("Prepared peripheral: \(meta?.name ?? "Unknown") (\(meta?.id.uuidString ?? ""))")
+    }
+
+    func bind(central: CBCentralManager) {
+        central.delegate = self
+        self.central = central
+        log("Bound to central manager")
     }
 
     func connectIfNeeded() {
-        guard let p = peripheral, let c = central else { return }
+        guard let p = peripheral, let c = central else {
+            log("connectIfNeeded: missing central or peripheral")
+            return
+        }
 
         wantsConnect = true
-
         switch c.state {
             case .poweredOn:
-                if p.state == .connected {
-                    stateText = "Connected"
-                    p.discoverServices(nil)
-                } else if p.state == .connecting {
-                    stateText = "Connecting…"
-                } else {
-                    stateText = "Waiting for pairing…"
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        if p.state == .disconnected {
+                switch p.state {
+                    case .connected:
+                        log("connectIfNeeded: already connected – discovering services")
+                        stateText = "Connected"
+                        p.discoverServices(nil)
+                    case .connecting:
+                        log("connectIfNeeded: currently connecting")
+                        stateText = "Connecting…"
+                    default:
+                        log("connectIfNeeded: initiating connection")
+                        stateText = "Waiting for pairing…"
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                            guard let self else { return }
+                            
+                            guard p.state == .disconnected else { return }
+                            log("connectIfNeeded: attempting central.connect")
                             self.stateText = "Connecting…"
                             c.connect(p, options: [CBConnectPeripheralOptionNotifyOnConnectionKey: true])
                             self.startConnectionTimeout()
                         }
-                    }
                 }
-            case .poweredOff:
-                stateText = "Bluetooth is OFF"
-            case .unauthorized:
-                stateText = "Bluetooth permission is not granted"
-            case .unsupported:
-                stateText = "Bluetooth LE unsupported"
-            case .resetting:
-                stateText = "Bluetooth is resetting…"
-            case .unknown:
-                stateText = "Bluetooth state: unknown"
-            @unknown default:
-                stateText = "Bluetooth state: unexpected"
+            default:
+                log("connectIfNeeded: central not powered on, state = \(c.state.rawValue)")
+                stateText = bluetoothStateText(c.state)
         }
     }
 
     func disconnect() {
-        guard let c = central else { return }
+        guard let c = central else {
+            log("disconnect: central is nil")
+            return
+        }
 
         isDisconnecting = true
         wantsConnect = false
 
-        if let p = peripheral {
-            if p.state == .connected || p.state == .connecting {
-                c.cancelPeripheralConnection(p)
-                stateText = "Closing GATT connection…"
+        if let p = peripheral, (p.state == .connected || p.state == .connecting) {
+            log("disconnect: cancelPeripheralConnection")
+            c.cancelPeripheralConnection(p)
+            stateText = "Closing GATT connection…"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                guard let self else { return }
 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
-                    guard let self = self else { return }
-                    if self.isDisconnecting {
-                        self.stateText = "Disconnected"
-                        self.isDisconnecting = false
-                    }
+                if self.isDisconnecting {
+                    self.stateText = "Disconnected"
+                    self.isDisconnecting = false
+                    log("disconnect: connection closed")
                 }
-            } else {
-                self.centralManager(c, didDisconnectPeripheral: p, error: nil)
             }
+        } else {
+            log("disconnect: not connected, invoking didDisconnect manually")
+            centralManager(c, didDisconnectPeripheral: peripheral!, error: nil)
         }
 
         stopConnectionTimeout()
     }
 
     func teardown() {
+        log("teardown: cleaning up")
         if !isDisconnecting {
             disconnect()
         }
+
         peripheral?.delegate = nil
         peripheral = nil
-        discoveredServices.removeAll()
-        characteristicsByService.removeAll()
+        discoveredServices = []
+        characteristicsByService = [:]
         notifyingCharacteristics.removeAll()
         hexLog.removeAll()
         showHIDHint = false
@@ -138,40 +148,61 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
     }
 
     func toggleNotify(for ch: CBCharacteristic) {
+        log("toggleNotify: \(ch.uuid.uuidString), currently notifying = \(isNotifying(ch))")
         peripheral?.setNotifyValue(!isNotifying(ch), for: ch)
     }
 
     func read(_ ch: CBCharacteristic) {
+        log("read: \(ch.uuid.uuidString)")
         peripheral?.readValue(for: ch)
     }
 
+    // MARK: - Private Helpers
+
     private func appendHex(_ data: Data?, prefix: String) {
-        guard let d = data, !d.isEmpty else { return }
+        guard let d = data, !d.isEmpty else {
+            log("\(prefix): no data to append")
+            return
+        }
         let hex = d.map { String(format: "%02X", $0) }.joined(separator: " ")
         hexLog.append("\(prefix): \(hex)")
         if hexLog.count > 500 {
             hexLog.removeFirst(hexLog.count - 500)
         }
+        log("appendHex: \(prefix): \(hex)")
     }
 
     private func connectionStateText(for state: CBPeripheralState) -> String {
         switch state {
             case .disconnected: return "Disconnected"
-            case .connecting:   return "Connecting…"
-            case .connected:    return "Connected"
-            case .disconnecting:return "Closing GATT connection…"
-            @unknown default:   return "Unknown"
+            case .connecting: return "Connecting…"
+            case .connected: return "Connected"
+            case .disconnecting: return "Closing GATT connection…"
+            @unknown default: return "Unknown"
+        }
+    }
+
+    private func bluetoothStateText(_ state: CBManagerState) -> String {
+        switch state {
+            case .unknown: return "Bluetooth state: unknown"
+            case .resetting: return "Bluetooth is resetting…"
+            case .unsupported: return "Bluetooth LE unsupported"
+            case .unauthorized: return "Bluetooth permission is not granted"
+            case .poweredOff: return "Bluetooth is OFF"
+            case .poweredOn: return "Bluetooth is ON"
+            @unknown default: return "Bluetooth state: unexpected"
         }
     }
 
     private func startConnectionTimeout() {
+        log("startConnectionTimeout: scheduling in \(connectionTimeoutSeconds)s")
         stopConnectionTimeout()
         connectionTimeoutTimer = Timer.scheduledTimer(withTimeInterval: connectionTimeoutSeconds, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                // Timed out opening GATT — likely HID-only on iOS.
                 self.stateText = "Connected as HID (no GATT)"
                 self.showHIDHint = true
+                self.log("Connection timeout expired — assuming HID-only")
             }
         }
     }
@@ -179,14 +210,24 @@ final class PeripheralConnectionManager: NSObject, ObservableObject {
     private func stopConnectionTimeout() {
         connectionTimeoutTimer?.invalidate()
         connectionTimeoutTimer = nil
+        log("stopConnectionTimeout: timer invalidated")
+    }
+
+    private func log(_ message: String) {
+        let ts = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+        print("[PeripheralConnectionManager] [\(ts)] \(message)")
     }
 }
 
 // MARK: - CBCentralManagerDelegate
 extension PeripheralConnectionManager: @preconcurrency CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        // If user tapped Connect before BT was ready, try now.
+        let text = bluetoothStateText(central.state)
+        stateText = text
+        log("centralManagerDidUpdateState: \(text)")
+
         if central.state == .poweredOn, wantsConnect, let p = peripheral {
+            log("central ready + wantsConnect – initiating connect")
             stateText = "Connecting…"
             central.connect(p, options: [CBConnectPeripheralOptionNotifyOnConnectionKey: true])
             startConnectionTimeout()
@@ -196,14 +237,15 @@ extension PeripheralConnectionManager: @preconcurrency CBCentralManagerDelegate 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         stopConnectionTimeout()
         stateText = "Connected"
+        log("didConnect: \(peripheral.name ?? "") (\(peripheral.identifier)) — discovering services")
         peripheral.discoverServices(nil)
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         stopConnectionTimeout()
         stateText = "Failed to connect"
-        // If this is a HID-only attach, hint the right path.
         showHIDHint = true
+        log("didFailToConnect: \(error?.localizedDescription ?? "no error info")")
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
@@ -211,47 +253,66 @@ extension PeripheralConnectionManager: @preconcurrency CBCentralManagerDelegate 
         stateText = "GATT connection closed"
         showHIDHint = false
         isDisconnecting = false
+        log("didDisconnectPeripheral: \(peripheral.name ?? "") — error: \(error?.localizedDescription ?? "none")")
     }
 }
 
 // MARK: - CBPeripheralDelegate
 extension PeripheralConnectionManager: @preconcurrency CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        if let _ = error {
+        if let err = error {
             stateText = "Service discovery failed"
+            log("didDiscoverServices: error \(err.localizedDescription)")
             return
         }
-        let services = peripheral.services ?? []
-        discoveredServices = services
 
-        // If nothing is discoverable, assume HID-only path on iOS.
-        if services.isEmpty {
-            showHIDHint = true
-        }
+        let svcs = peripheral.services ?? []
+        discoveredServices = svcs
+        log("didDiscoverServices: found \(svcs.count) services")
 
-        for s in services {
-            peripheral.discoverCharacteristics(nil, for: s)
+        showHIDHint = svcs.isEmpty
+        for service in svcs {
+            log("→ Service: \(service.uuid.uuidString)")
+            peripheral.discoverCharacteristics(nil, for: service)
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
-        guard error == nil else { return }
+        if let err = error {
+            log("didDiscoverCharacteristicsFor \(service.uuid.uuidString): error \(err.localizedDescription)")
+            return
+        }
+
         let chars = service.characteristics ?? []
         characteristicsByService[service.uuid] = chars
+        log("didDiscoverCharacteristicsFor \(service.uuid.uuidString): found \(chars.count) characteristics")
+
+        for ch in chars {
+            log("⤷ Char: \(ch.uuid.uuidString) props: \(ch.properties)")
+        }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
-        guard error == nil else { return }
+        if let err = error {
+            log("didUpdateValueFor \(characteristic.uuid.uuidString): error \(err.localizedDescription)")
+            return
+        }
         appendHex(characteristic.value, prefix: "Notify \(characteristic.uuid.uuidString)")
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
-        guard error == nil else { return }
+        if let err = error {
+            log("didUpdateNotificationStateFor \(characteristic.uuid.uuidString): error \(err.localizedDescription)")
+            return
+        }
+
         let key = ObjectIdentifier(characteristic)
         if characteristic.isNotifying {
             notifyingCharacteristics.insert(key)
+            log("didUpdateNotificationStateFor \(characteristic.uuid.uuidString): now notifying")
         } else {
             notifyingCharacteristics.remove(key)
+            log("didUpdateNotificationStateFor \(characteristic.uuid.uuidString): stopped notifying")
         }
     }
 }

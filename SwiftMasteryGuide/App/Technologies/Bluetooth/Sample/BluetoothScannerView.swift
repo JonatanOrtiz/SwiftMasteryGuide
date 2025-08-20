@@ -47,8 +47,14 @@ struct BluetoothScannerView: View {
             }
 
             ControlsBar(
-                onStartScan: { vm.startScanning() },
-                onStopScan: { vm.stopScanning() }
+                onStartScan: {
+                    print("[UserAction] Start Scan button tapped")
+                    vm.startScanning()
+                },
+                onStopScan: {
+                    print("[UserAction] Stop Scan button tapped")
+                    vm.stopScanning()
+                }
             )
         }
         .padding(20)
@@ -75,6 +81,9 @@ private struct BLEDevicesSection: View {
                             )
                     ) {
                         BLEDeviceRow(item: item)
+                            .onTapGesture {
+                                print("[Navigation] Selected peripheral: \(item.name), ID: \(item.id)")
+                            }
                     }
                 }
             }

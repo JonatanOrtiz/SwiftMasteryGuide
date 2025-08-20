@@ -43,29 +43,39 @@ final class BluetoothScannerViewModel: NSObject, ObservableObject {
     private let minUIRefreshInterval: CFTimeInterval = 0.5
     private var lastResortTime: CFAbsoluteTime = 0
     private let minResortInterval: CFTimeInterval = 2.0
-
+    var centralManager: CBCentralManager? { central }
     private var peripheralById: [UUID: CBPeripheral] = [:]
     private var isScanning = false
 
     override init() {
         super.init()
         central = CBCentralManager(delegate: self, queue: nil)
+        print("[BLE Init] CBCentralManager initialized.")
     }
 
     func startScanning() {
-        guard let central, central.state == .poweredOn else { return }
+        guard let central else {
+            print("[BLE Scan] Central manager is nil.")
+            return
+        }
+        guard central.state == .poweredOn else {
+            print("[BLE Scan] Bluetooth not powered on.")
+            return
+        }
         isScanning = true
         central.scanForPeripherals(
             withServices: nil,
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
         stateText = "Scanning…"
+        print("[BLE Scan] Started scanning.")
     }
 
     func stopScanning() {
         central?.stopScan()
         isScanning = false
         stateText = "Stopped"
+        print("[BLE Scan] Stopped scanning.")
 
         seen.removeAll()
         order.removeAll()
@@ -92,6 +102,7 @@ final class BluetoothScannerViewModel: NSObject, ObservableObject {
                 ids = seen
                     .sorted { $0.value.smoothedRSSI > $1.value.smoothedRSSI }
                     .map { $0.key }
+                print("[BLE Sort] Devices sorted by signal.")
             } else {
                 ids = items.map { $0.id }
             }
@@ -118,6 +129,7 @@ final class BluetoothScannerViewModel: NSObject, ObservableObject {
 
         DispatchQueue.main.async { [weak self] in
             self?.items = out
+            print("[BLE UI] Updated list with \(out.count) items.")
         }
     }
 
@@ -131,13 +143,27 @@ extension BluetoothScannerViewModel: CBCentralManagerDelegate {
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
-            case .unknown: stateText = "Bluetooth state: unknown"
-            case .resetting: stateText = "Bluetooth is resetting…"
-            case .unsupported: stateText = "Bluetooth LE is unsupported on this device"
-            case .unauthorized: stateText = "Bluetooth permission is not granted"
-            case .poweredOff: stateText = "Bluetooth is OFF"
-            case .poweredOn: stateText = "Bluetooth is ON"
-            @unknown default: stateText = "Bluetooth state: unexpected"
+            case .unknown:
+                stateText = "Bluetooth state: unknown"
+                print("[BLE State] Unknown")
+            case .resetting:
+                stateText = "Bluetooth is resetting…"
+                print("[BLE State] Resetting")
+            case .unsupported:
+                stateText = "Bluetooth LE is unsupported on this device"
+                print("[BLE State] Unsupported")
+            case .unauthorized:
+                stateText = "Bluetooth permission is not granted"
+                print("[BLE State] Unauthorized")
+            case .poweredOff:
+                stateText = "Bluetooth is OFF"
+                print("[BLE State] Powered OFF")
+            case .poweredOn:
+                stateText = "Bluetooth is ON"
+                print("[BLE State] Powered ON")
+            @unknown default:
+                stateText = "Bluetooth state: unexpected"
+                print("[BLE State] Unexpected default case")
         }
     }
 
@@ -176,6 +202,7 @@ extension BluetoothScannerViewModel: CBCentralManagerDelegate {
             existing.lastRawRSSI = newRssi
             existing.smoothedRSSI = smoothRSSI(previous: existing.smoothedRSSI, new: newRssi)
             seen[id] = existing
+            print("[BLE Device] Updated peripheral: \(name)")
         } else {
             let smoothed = smoothRSSI(previous: nil, new: newRssi)
             seen[id] = MutablePeripheral(
@@ -189,6 +216,7 @@ extension BluetoothScannerViewModel: CBCentralManagerDelegate {
                 lastRawRSSI: newRssi
             )
             order.append(id)
+            print("[BLE Device] New peripheral discovered: \(name)")
         }
 
         rebuildItemsIfNeeded()
