@@ -1,5 +1,5 @@
 //
-//  BubblesFromHandDemo.swift
+//  HandEffectsFromHandDemo.swift
 //  SwiftMasteryGuide
 //
 //  Created by Jonatan Ortiz on 20/08/25.
@@ -9,38 +9,36 @@ import UIKit
 import SwiftUI
 import AVFoundation
 import Vision
-import CoreImage
-import QuartzCore
 
 // MARK: - Public SwiftUI screen
 
-public struct ARBubblesDemoScreen: View {
+public struct ARHandEffectsDemoView: View {
     public init() {}
 
     public var body: some View {
         Representable()
             .ignoresSafeArea()
-            .navigationTitle("AR Bubbles (Hand)")
+            .navigationTitle("AR HandEffects (Hand)")
             .navigationBarTitleDisplayMode(.inline)
     }
 
     private struct Representable: UIViewControllerRepresentable {
-        func makeUIViewController(context: Context) -> BubblesViewController {
-            let vc = BubblesViewController()
+        func makeUIViewController(context: Context) -> HandEffectsViewController {
+            let vc = HandEffectsViewController()
             print("[SwiftUI] makeUIViewController OK")
             return vc
         }
 
-        func updateUIViewController(_ uiViewController: BubblesViewController, context: Context) { }
+        func updateUIViewController(_ uiViewController: HandEffectsViewController, context: Context) { }
     }
 }
 
 // MARK: - Main ViewController
 
-final class BubblesViewController: UIViewController {
+final class HandEffectsViewController: UIViewController {
 
     // Camera
-    private let session = AVCaptureSession()
+    private var session: AVCaptureSession? = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
     private let videoOutput = AVCaptureVideoDataOutput()
 
@@ -64,6 +62,12 @@ final class BubblesViewController: UIViewController {
     private var closedStableCounter = 0
     private let stableThreshold = 3 // frames
 
+    // Timer for detection (not used here, but for future-proofing)
+    private var detectionTimer: Timer?
+
+    // Prevent multiple stop() calls
+    private var isStopped = false
+
     // MARK: Lifecycle
 
     override func viewDidLoad() {
@@ -74,6 +78,17 @@ final class BubblesViewController: UIViewController {
 
         setupUI()
         requestCameraAccessAndStart()
+
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .close,
+            target: self,
+            action: #selector(closeTapped)
+        )
+    }
+    @objc private func closeTapped() {
+        print("[HandEffectsViewController] closeTapped chamado")
+        stop()
+        navigationController?.popViewController(animated: true)
     }
 
     override func viewDidLayoutSubviews() {
@@ -125,38 +140,63 @@ final class BubblesViewController: UIViewController {
         overlayView.start()
         configureSessionIfNeeded()
         sessionQueue.async { [weak self] in
-            self?.session.startRunning()
+            guard let self = self, let session = self.session else { return }
+            session.startRunning()
             print("[Camera] session started")
         }
     }
 
     private func stop() {
-        guard isRunning else { return }
-        print("[VM] stop()")
-        isRunning = false
-        overlayView.stop()
+        print("[HandEffectsViewController] stop() called")
+        guard !self.isStopped else { return }
+        self.isStopped = true
+        // Cancela qualquer timer
+        if let timer = detectionTimer {
+            timer.invalidate()
+            detectionTimer = nil
+        }
+        // Remove sample buffer delegate
+        videoOutput.setSampleBufferDelegate(nil, queue: nil)
         sessionQueue.async { [weak self] in
-            guard let self else { return }
-            self.session.stopRunning()
-            print("[Camera] session stopped")
-            self.videoOutput.setSampleBufferDelegate(nil, queue: nil)
-            self.session.beginConfiguration()
-            self.session.outputs.forEach { self.session.removeOutput($0) }
-            self.session.inputs.forEach { self.session.removeInput($0) }
-            self.session.commitConfiguration()
+            guard let self = self else {
+                print("[HandEffectsViewController] sessionQueue stop aborted — self deallocated")
+                return
+            }
+            guard let session = self.session else {
+                print("[HandEffectsViewController] stop aborted — session nil")
+                return
+            }
+            if session.isRunning {
+                session.stopRunning()
+                print("[Camera] session stopped")
+            }
+            session.inputs.forEach { input in
+                session.removeInput(input)
+            }
+            session.outputs.forEach { output in
+                session.removeOutput(output)
+            }
             self.isConfigured = false
             print("[Camera] torn down")
         }
+        // Stop the overlay view emitter as well
+        overlayView.stop()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        stop()
     }
 
     deinit {
+        print("[HandEffectsViewController] deinit chamado")
         stop()
     }
 
     // MARK: Camera configuration
 
     private func configureSessionIfNeeded() {
-        guard !isConfigured else { return }
+        guard !isConfigured, let session = session else { return }
         print("[Camera] configuring…")
 
         session.beginConfiguration()
@@ -215,7 +255,7 @@ final class BubblesViewController: UIViewController {
 
 // MARK: - Sample buffer delegate
 
-extension BubblesViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
+extension HandEffectsViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
@@ -302,16 +342,27 @@ extension BubblesViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
                 Finger(tip: p(.littleTip), mcp: p(.littleMCP))
             ]
 
-            var extendedCount = 0
+            var extended: [Int] = []
             var tipPositions: [CGPoint] = []
-
-            for f in fingers {
+            let fingerNames = ["thumb", "index", "middle", "ring", "little"]
+            
+            for (i, f) in fingers.enumerated() {
                 if let tip = f.tip, let mcp = f.mcp {
                     let dm = hypot(tip.x - mcp.x, tip.y - mcp.y)
                     let dw = hypot(tip.x - wrist.x, tip.y - wrist.y)
-                    // Relaxed thresholds to validate visually first:
-                    if dw > 0.16, dm > 0.08 {
-                        extendedCount += 1
+                    
+                    // Thumb needs different thresholds due to its different anatomy
+                    let isExtended: Bool
+                    if i == 0 { // thumb
+                        isExtended = dw > 0.20 && dm > 0.12 // Higher thresholds for thumb
+                    } else { // other fingers
+                        isExtended = dw > 0.16 && dm > 0.08
+                    }
+                    
+                    print("[Vision] \(fingerNames[i]): dm=\(String(format: "%.3f", dm)), dw=\(String(format: "%.3f", dw)), extended=\(isExtended)")
+                    
+                    if isExtended {
+                        extended.append(i)
                         tipPositions.append(tip)
                     }
                 }
@@ -332,6 +383,9 @@ extension BubblesViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
                 if n > 0 { avgSpread = sum / n }
             }
 
+            // Log extended fingers indices for diagnostics
+            print("[Vision] extended fingers: \(extended)")
+
             // Palm center ≈ average of MCPs
             var mcpList: [CGPoint] = []
             for name in [VNHumanHandPoseObservation.JointName.indexMCP,
@@ -342,25 +396,38 @@ extension BubblesViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
 
             // Simple facing + topology hints (for portrait + front camera)
             let wristToPalm = CGPoint(x: palmCenter.x - wrist.x, y: palmCenter.y - wrist.y)
-            let wristToPalmUp = wristToPalm.y > 0 // Ajustado para refletir corretamente a direção da palma com base na orientação da câmera
+            let wristToPalmUp = wristToPalm.y > 0
             print("[Vision] wristToPalm.y:", wristToPalm.y, "→ wristToPalmUp:", wristToPalmUp)
             print("[Vision] wrist:", wrist)
             print("[Vision] palmCenter:", palmCenter)
             let tipsAbovePalm = tipPositions.filter { $0.y < palmCenter.y }.count
 
+            // Check for victory sign (index and middle finger extended, others not)
+            let isVictorySign = extended.count == 2 && extended.contains(1) && extended.contains(2)
+            
+            if isVictorySign {
+                print("[Gesture] ✌️ Victory sign detected!")
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    let pt = self.previewView.previewLayer.layerPointConverted(fromCaptureDevicePoint: palmCenter)
+                    self.overlayView.showSpark(at: pt)
+                }
+            }
+
             // Final relaxed heuristic (so it triggers while you test):
             let isOpen: Bool =
-            (extendedCount >= 3) &&      // was 5
-            (avgSpread > 0.08) &&        // was 0.10
+            (extended.count >= 3) &&
+            (avgSpread > 0.08) &&
             wristToPalmUp &&
-            (tipsAbovePalm >= 2)         // was 4
+            (tipsAbovePalm >= 2)
 
-            print("[Vision] extended:", extendedCount,
+            print("[Vision] extended:", extended.count,
                   "avgSpread:", String(format: "%.3f", avgSpread),
                   "tipsAbovePalm:", tipsAbovePalm,
                   "isOpen:", isOpen)
 
-            updateOpenPalmState(isOpen: isOpen, reason: isOpen ? "open" : "not open")
+            // Only allow open hand to trigger HandEffects if more than 2 fingers are extended (prevents "jóia" from activating)
+            updateOpenPalmState(isOpen: isOpen && extended.count > 2, reason: (isOpen && extended.count > 2) ? "open" : "not open")
 
             // Update emitter position to palm center (screen coords)
             print("[Vision] Emission point (normalized):", palmCenter)
@@ -469,6 +536,49 @@ final class BubbleEmitterView: UIView {
 
     func updateEmissionPoint(_ p: CGPoint) {
         emitterLayer.emitterPosition = p
+    }
+
+    /// Show a quick spark/explosion effect at the given point (in view coordinates)
+    func showSpark(at point: CGPoint) {
+        let spark = CAEmitterLayer()
+        spark.emitterPosition = point
+        spark.emitterShape = .point
+        spark.renderMode = .additive
+
+        let cell = CAEmitterCell()
+        cell.contents = makeSparkImage()?.cgImage
+        cell.birthRate = 150
+        cell.lifetime = 0.4
+        cell.velocity = 180
+        cell.velocityRange = 80
+        cell.scale = 0.05
+        cell.alphaSpeed = -1.0
+        cell.emissionRange = .pi * 2
+        cell.beginTime = CACurrentMediaTime()
+        cell.duration = 0.2
+
+        spark.emitterCells = [cell]
+        layer.addSublayer(spark)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if spark.superlayer != nil {
+                spark.removeFromSuperlayer()
+            }
+        }
+    }
+
+    private func makeSparkImage() -> UIImage? {
+        let size = CGSize(width: 20, height: 20)
+        let scale = UIScreen.main.scale
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        let img = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            let rect = CGRect(origin: .zero, size: size)
+            let path = UIBezierPath(ovalIn: rect)
+            UIColor.yellow.setFill()
+            path.fill()
+        }
+        return img
     }
 
     private func setupEmitter() {
@@ -580,5 +690,42 @@ final class DebugHUD: UILabel {
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         print("[HUD] init(coder:)")
+    }
+}
+
+
+// MARK: - Spark effect for ✌️ gesture
+extension HandEffectsViewController {
+    /// Emit spark particles at a given point in view coordinates (for ✌️ gesture)
+    func emitSparks(at point: CGPoint) {
+        DispatchQueue.main.async {
+            let emitter = CAEmitterLayer()
+            emitter.emitterPosition = point
+            emitter.emitterShape = .point
+            emitter.renderMode = .additive
+            emitter.birthRate = 1
+
+            let cell = CAEmitterCell()
+            // Try to use "spark" image, fallback to SF Symbol "sparkle" if not found
+            cell.contents = UIImage(named: "spark")?.cgImage
+            if cell.contents == nil {
+                cell.contents = UIImage(systemName: "sparkle")?.withTintColor(.white).cgImage
+            }
+            cell.birthRate = 500
+            cell.lifetime = 0.5
+            cell.velocity = 200
+            cell.velocityRange = 50
+            cell.emissionRange = .pi * 2
+            cell.scale = 0.02
+            cell.scaleRange = 0.01
+            cell.alphaSpeed = -1.0
+
+            emitter.emitterCells = [cell]
+            self.view.layer.addSublayer(emitter)
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                emitter.removeFromSuperlayer()
+            }
+        }
     }
 }

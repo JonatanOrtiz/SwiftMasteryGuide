@@ -14,6 +14,7 @@ struct TechnologiesListView: View {
         case textSentimentAnalysis = "Text Sentiment Analysis"
         case bluetoothScanner = "Bluetooth Scanner"
         case gameController = "Game Controller"
+        case gestureRecognition = "Gesture Recognition"
         var id: String { rawValue }
     }
 
@@ -44,6 +45,8 @@ struct TechnologiesListView: View {
                 BluetoothGuideView()
             case .gameController:
                 GameControllerGuideView()
+            case .gestureRecognition:
+                ARHandEffectsGuideView()
         }
     }
 }
