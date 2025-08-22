@@ -15,6 +15,15 @@ struct CoreHapticsGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
 
+                NavigationLink(destination: CoreHapticsView()) {
+                    Text("Open Core Haptics Demo")
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .accessibilityLabel("Open Core Haptics demo")
+
                 Title("Audio‑Reactive Haptics in SwiftUI (iOS 15+)")
 
                 Subtitle("What you’ll build")
@@ -255,17 +264,6 @@ struct CoreHapticsGuideView: View {
                     "Tune RMS threshold and haptic duration for your content.",
                     "If you target iOS 13/14, replace async track loading with the synchronous API and remove `Task`/`await`."
                 ])
-
-                DividerLine()
-
-                Subtitle("Live Demo")
-                NavigationLink(destination: CoreHapticsView()) {
-                    Text("Open Core Haptics Demo")
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
 
                 Spacer(minLength: 24)
             }

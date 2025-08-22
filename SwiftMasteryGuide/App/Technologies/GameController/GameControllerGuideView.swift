@@ -16,6 +16,15 @@ struct GameControllerGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
 
+                NavigationLink(destination: GameControllerView()) {
+                    Text("Open Controllers List")
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .accessibilityLabel("Open controllers list")
+
                 // Lesson Intro
                 Title("GameController – Overview")
                 BodyText("""
@@ -364,30 +373,7 @@ struct GameControllerGuideView: View {
                 It avoids memory leaks by removing observers in `deinit` and using `[weak self]` in closures.
                 """)
 
-                DividerLine()
-
-                // Demo section
-                Subtitle("Try It In The App")
-                BodyText("""
-                Use the links below to open the list and the live input demo. \
-                Pair a controller in Settings → Bluetooth first, then come back here to test.
-                """)
-
-                HStack(spacing: 12) {
-                    NavigationLink(
-                        destination: GameControllerView()
-                    ) {
-                        Text("Open Controllers List")
-                            .font(.system(size: 14, weight: .semibold))
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color.dividerColor, lineWidth: 1)
-                            )
-                    }
-                    .accessibilityLabel("Open controllers list")
-                }
+                Spacer(minLength: 24)
             }
             .padding(20)
         }

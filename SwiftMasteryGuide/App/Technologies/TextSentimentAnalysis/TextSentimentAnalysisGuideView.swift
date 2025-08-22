@@ -35,6 +35,15 @@ struct TextSentimentAnalysisGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
 
+                NavigationLink(destination: TextSentimentAnalysisView()) {
+                    Text("Open Text Sentiment Demo")
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .accessibilityLabel("Open text sentiment analysis demo")
+
                 Title("Text Sentiment – Guide")
 
                 BodyText("""

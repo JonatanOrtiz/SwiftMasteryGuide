@@ -17,6 +17,15 @@ struct LiveImageClassificationGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
 
+                NavigationLink(destination: LiveCameraClassificationView()) {
+                    Text("Open Live Classification Demo")
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .accessibilityLabel("Open live classification demo")
+
                 Title("Live Image Classification (Camera) – Core ML + Vision")
 
                 Subtitle("What you’ll build")
@@ -411,17 +420,6 @@ struct LiveImageClassificationGuideView: View {
                     "If objects are small, switch preset to .hd1280x720 for more pixels (trade-off: battery/CPU).",
                     "For the best results, make the object fill ~40–60% of the frame and keep it centered under good lighting."
                 ])
-
-                DividerLine()
-
-                Subtitle("Live Demo")
-                NavigationLink(destination: LiveCameraClassificationView()) {
-                    Text("Open Live Classification Demo")
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
 
                 Spacer(minLength: 24)
             }

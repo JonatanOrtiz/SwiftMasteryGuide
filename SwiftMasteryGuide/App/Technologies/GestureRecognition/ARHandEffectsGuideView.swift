@@ -16,6 +16,15 @@ struct ARHandEffectsGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
 
+                NavigationLink(destination: ARHandEffectsDemoView()) {
+                    Text("Open Hand Effects Demo")
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .accessibilityLabel("Open hand effects demo")
+
                 // Lesson Intro
                 Title("Hand Gesture Recognition – Overview")
                 BodyText("""
@@ -308,28 +317,7 @@ struct ARHandEffectsGuideView: View {
                 Open palm triggers continuous bubbles, while victory sign creates a brief spark burst.
                 """)
 
-                DividerLine()
-
-                // Demo section
-                Subtitle("Try It In The App")
-                BodyText("""
-                Test the hand gesture recognition demo below. Hold your hand in front of the camera and try different gestures:
-                • Open palm: Triggers continuous bubble effects
-                • Victory sign (✌️): Creates spark burst effects
-                """)
-
-                HStack(spacing: 12) {
-                    NavigationLink(
-                        destination: ARHandEffectsDemoView()
-                    ) {
-                        Text("Open Hand Effects Demo")
-                            .padding()
-                            .background(Color.accentColor)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
-                    }
-                    .accessibilityLabel("Open hand effects demo")
-                }
+                Spacer(minLength: 24)
             }
             .padding(20)
         }

@@ -15,6 +15,7 @@ struct TechnologiesListView: View {
         case bluetoothScanner = "Bluetooth Scanner"
         case gameController = "Game Controller"
         case gestureRecognition = "Gesture Recognition"
+        case pushNotificationsVideo = "Push Notifications Video"
         var id: String { rawValue }
     }
 
@@ -47,6 +48,8 @@ struct TechnologiesListView: View {
                 GameControllerGuideView()
             case .gestureRecognition:
                 ARHandEffectsGuideView()
+            case .pushNotificationsVideo:
+                PushNotificationsVideoGuideView()
         }
     }
 }

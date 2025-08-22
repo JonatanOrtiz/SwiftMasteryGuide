@@ -22,6 +22,15 @@ struct SpeechToTextGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
 
+                NavigationLink(destination: SpeechToTextView()) {
+                    Text("Open Speech-to-Text Demo")
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .accessibilityLabel("Open speech to text demo")
+
                 // MARK: Intro
 
                 Title("Speech-to-Text with Whisper + Core ML (On-Device)")
@@ -571,18 +580,6 @@ struct SpeechToTextGuideView: View {
                     """
                 )
 
-                DividerLine()
-
-                // MARK: Live Demo link
-
-                Subtitle("Live Demo")
-                NavigationLink(destination: SpeechToTextView()) {
-                    Text("Open Speech-to-Text Demo")
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
 
                 Spacer(minLength: 24)
             }

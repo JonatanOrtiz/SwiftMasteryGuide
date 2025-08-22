@@ -4,6 +4,11 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
+		<key>NotificationServiceExtension.xcscheme_^#shared#^_</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>1</integer>
+		</dict>
 		<key>SwiftMasteryGuide.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
@@ -13,6 +18,11 @@
 	<key>SuppressBuildableAutocreation</key>
 	<dict>
 		<key>21244FD62E4AA490007AA98E</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>218DF3D82E57FE7900CE5ACD</key>
 		<dict>
 			<key>primary</key>
 			<true/>

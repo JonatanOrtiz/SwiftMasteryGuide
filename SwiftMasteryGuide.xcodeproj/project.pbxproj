@@ -8,16 +8,60 @@
 
 /* Begin PBXBuildFile section */
 		2101989F2E4D419D00E72274 /* SwiftWhisper in Frameworks */ = {isa = PBXBuildFile; productRef = 2101989E2E4D419D00E72274 /* SwiftWhisper */; };
+		218DF3E02E57FE7900CE5ACD /* NotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 218DF3D92E57FE7900CE5ACD /* NotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		218DF3DE2E57FE7900CE5ACD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 21244FCF2E4AA490007AA98E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 218DF3D82E57FE7900CE5ACD;
+			remoteInfo = NotificationServiceExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		218DF3E52E57FE7900CE5ACD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				218DF3E02E57FE7900CE5ACD /* NotificationServiceExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		21244FD72E4AA490007AA98E /* SwiftMasteryGuide.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwiftMasteryGuide.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		218DF3D92E57FE7900CE5ACD /* NotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		218DF3E12E57FE7900CE5ACD /* Exceptions for "NotificationServiceExtension" folder in "NotificationServiceExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 218DF3D82E57FE7900CE5ACD /* NotificationServiceExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		21244FD92E4AA490007AA98E /* SwiftMasteryGuide */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = SwiftMasteryGuide;
+			sourceTree = "<group>";
+		};
+		218DF3DA2E57FE7900CE5ACD /* NotificationServiceExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				218DF3E12E57FE7900CE5ACD /* Exceptions for "NotificationServiceExtension" folder in "NotificationServiceExtension" target */,
+			);
+			path = NotificationServiceExtension;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -31,12 +75,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		218DF3D62E57FE7900CE5ACD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		21244FCE2E4AA490007AA98E = {
 			isa = PBXGroup;
 			children = (
+				218DF3DA2E57FE7900CE5ACD /* NotificationServiceExtension */,
 				21244FD82E4AA490007AA98E /* Products */,
 				21244FD92E4AA490007AA98E /* SwiftMasteryGuide */,
 			);
@@ -46,6 +98,7 @@
 			isa = PBXGroup;
 			children = (
 				21244FD72E4AA490007AA98E /* SwiftMasteryGuide.app */,
+				218DF3D92E57FE7900CE5ACD /* NotificationServiceExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -60,10 +113,12 @@
 				21244FD32E4AA490007AA98E /* Sources */,
 				21244FD42E4AA490007AA98E /* Frameworks */,
 				21244FD52E4AA490007AA98E /* Resources */,
+				218DF3E52E57FE7900CE5ACD /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				218DF3DF2E57FE7900CE5ACD /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				21244FD92E4AA490007AA98E /* SwiftMasteryGuide */,
@@ -76,6 +131,28 @@
 			productReference = 21244FD72E4AA490007AA98E /* SwiftMasteryGuide.app */;
 			productType = "com.apple.product-type.application";
 		};
+		218DF3D82E57FE7900CE5ACD /* NotificationServiceExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 218DF3E22E57FE7900CE5ACD /* Build configuration list for PBXNativeTarget "NotificationServiceExtension" */;
+			buildPhases = (
+				218DF3D52E57FE7900CE5ACD /* Sources */,
+				218DF3D62E57FE7900CE5ACD /* Frameworks */,
+				218DF3D72E57FE7900CE5ACD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				218DF3DA2E57FE7900CE5ACD /* NotificationServiceExtension */,
+			);
+			name = NotificationServiceExtension;
+			packageProductDependencies = (
+			);
+			productName = NotificationServiceExtension;
+			productReference = 218DF3D92E57FE7900CE5ACD /* NotificationServiceExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -87,6 +164,9 @@
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					21244FD62E4AA490007AA98E = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					218DF3D82E57FE7900CE5ACD = {
 						CreatedOnToolsVersion = 16.2;
 					};
 				};
@@ -109,12 +189,20 @@
 			projectRoot = "";
 			targets = (
 				21244FD62E4AA490007AA98E /* SwiftMasteryGuide */,
+				218DF3D82E57FE7900CE5ACD /* NotificationServiceExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		21244FD52E4AA490007AA98E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		218DF3D72E57FE7900CE5ACD /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -131,7 +219,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		218DF3D52E57FE7900CE5ACD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		218DF3DF2E57FE7900CE5ACD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 218DF3D82E57FE7900CE5ACD /* NotificationServiceExtension */;
+			targetProxy = 218DF3DE2E57FE7900CE5ACD /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		21244FE32E4AA492007AA98E /* Debug */ = {
@@ -189,6 +292,7 @@
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requires Bluetooth access to scan and connect to nearby devices.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to classify objects in real time.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to demonstrate on-device speech transcription with Whisper (Core ML).";
+				INFOPLIST_KEY_NSUserNotificationsUsageDescription = "This app uses notifications to demonstrate push notification features with rich media content including videos.";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -249,6 +353,7 @@
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requires Bluetooth access to scan and connect to nearby devices.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to classify objects in real time.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to demonstrate on-device speech transcription with Whisper (Core ML).";
+				INFOPLIST_KEY_NSUserNotificationsUsageDescription = "This app uses notifications to demonstrate push notification features with rich media content including videos.";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -264,13 +369,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = SwiftMasteryGuide/SwiftMasteryGuide.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"SwiftMasteryGuide/Preview Content\"";
-				DEVELOPMENT_TEAM = 48P4P77VRK;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 48P4P77VRK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requires Bluetooth access to scan and connect to nearby devices.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to classify objects in real time.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to demonstrate on-device speech transcription with Whisper (Core ML).";
+				INFOPLIST_KEY_NSUserNotificationsUsageDescription = "This app uses notifications to demonstrate push notification features with rich media content including videos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -281,8 +394,10 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = jonatanortiz.SwiftMasteryGuide;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonatanortiz.SwiftMasteryGuide;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "SwiftMasteryGuide Development";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -294,13 +409,21 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = SwiftMasteryGuide/SwiftMasteryGuide.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"SwiftMasteryGuide/Preview Content\"";
-				DEVELOPMENT_TEAM = 48P4P77VRK;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 48P4P77VRK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requires Bluetooth access to scan and connect to nearby devices.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to classify objects in real time.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to demonstrate on-device speech transcription with Whisper (Core ML).";
+				INFOPLIST_KEY_NSUserNotificationsUsageDescription = "This app uses notifications to demonstrate push notification features with rich media content including videos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -311,8 +434,70 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = jonatanortiz.SwiftMasteryGuide;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonatanortiz.SwiftMasteryGuide;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "SwiftMasteryGuide Development";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		218DF3E32E57FE7900CE5ACD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 48P4P77VRK;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = NotificationServiceExtension;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requires Bluetooth access to scan and connect to nearby devices.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to classify objects in real time.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to demonstrate on-device speech transcription with Whisper (Core ML).";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonatanortiz.SwiftMasteryGuide.NotificationServiceExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		218DF3E42E57FE7900CE5ACD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 48P4P77VRK;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = NotificationServiceExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = NotificationServiceExtension;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "This app requires Bluetooth access to scan and connect to nearby devices.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to classify objects in real time.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to demonstrate on-device speech transcription with Whisper (Core ML).";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jonatanortiz.SwiftMasteryGuide.NotificationServiceExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -336,6 +521,15 @@
 			buildConfigurations = (
 				21244FE62E4AA492007AA98E /* Debug */,
 				21244FE72E4AA492007AA98E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		218DF3E22E57FE7900CE5ACD /* Build configuration list for PBXNativeTarget "NotificationServiceExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				218DF3E32E57FE7900CE5ACD /* Debug */,
+				218DF3E42E57FE7900CE5ACD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -15,6 +15,15 @@ struct BluetoothGuideView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
 
+                NavigationLink(destination: BluetoothScannerView()) {
+                    Text("Open Bluetooth Scanner Demo")
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .accessibilityLabel("Open bluetooth scanner demo")
+
                 Title("Bluetooth Low Energy Scanner -- Complete Guide")
 
                 Subtitle("What you'll build")
@@ -1087,19 +1096,6 @@ struct PeripheralDetailView: View {
                     "✓ Test background/foreground transitions → should maintain state.",
                     "✓ Test memory usage during long scans → should be stable."
                 ])
-
-                DividerLine()
-
-                // MARK: - Live Demo
-
-                Subtitle("Live Demo")
-                NavigationLink(destination: BluetoothScannerView()) {
-                    Text("Open Bluetooth Scanner Demo")
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
 
                 Spacer(minLength: 24)
             }
