@@ -57,17 +57,6 @@ struct PushNotificationsVideoDemoView: View {
                 BodyText("Try these different notification types to see rich media in action:")
                 
                 VStack(spacing: 12) {
-                    // Simple Video Notification
-                    DemoButton(
-                        title: "📹 Schedule Video Notification",
-                        subtitle: "Remote video download simulation",
-                        isEnabled: viewModel.canScheduleNotifications && !viewModel.isScheduling
-                    ) {
-                        Task {
-                            await viewModel.scheduleVideoNotification()
-                        }
-                    }
-                    
                     // Rich Media Notification
                     DemoButton(
                         title: "🖼️ Rich Media Notification",
@@ -239,58 +228,15 @@ final class PushNotificationsDemoViewModel: ObservableObject, @unchecked Sendabl
     }
     
     func setupNotificationActions() {
-        let playAction = UNNotificationAction(
-            identifier: "PLAY_ACTION",
-            title: "▶️ Play",
-            options: [.foreground]
-        )
-        
-        let pauseAction = UNNotificationAction(
-            identifier: "PAUSE_ACTION",
-            title: "⏸️ Pause",
+        // Simple category without action buttons
+        let videoCategory = UNNotificationCategory(
+            identifier: "VIDEO_CATEGORY",
+            actions: [],
+            intentIdentifiers: [],
             options: []
         )
         
-        let shareAction = UNNotificationAction(
-            identifier: "SHARE_ACTION",
-            title: "📤 Share",
-            options: [.foreground]
-        )
-        
-        let videoCategory = UNNotificationCategory(
-            identifier: "VIDEO_CATEGORY",
-            actions: [playAction, pauseAction, shareAction],
-            intentIdentifiers: [],
-            options: [.customDismissAction]
-        )
-        
         UNUserNotificationCenter.current().setNotificationCategories([videoCategory])
-    }
-    
-    func scheduleVideoNotification() async {
-        guard canScheduleNotifications else { return }
-        
-        isScheduling = true
-        statusMessage = "📹 Scheduling video notification..."
-        
-        let content = UNMutableNotificationContent()
-        content.title = "Video Message Received"
-        content.body = "📹 Use Push Notification Console to send real video notifications"
-        content.sound = .default
-        content.categoryIdentifier = "VIDEO_CATEGORY"
-        
-        configureNotificationContent(content)
-        
-        content.userInfo.merge([
-            "demo_type": "remote_push_simulation",
-            "message_id": "demo_local_\(Date().timeIntervalSince1970)",
-            "notification_type": "local_demo"
-        ]) { (_, new) in new }
-        
-        await scheduleNotification(content: content, identifier: "video_notification")
-        
-        isScheduling = false
-        statusMessage = "✅ Video notification scheduled! Exit the app to see it."
     }
     
     func scheduleLocalVideoNotification() async {
