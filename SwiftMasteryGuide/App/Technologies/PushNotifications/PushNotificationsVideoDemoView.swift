@@ -339,17 +339,16 @@ final class PushNotificationsDemoViewModel: ObservableObject {
         // Configure notification for proper icon display
         configureNotificationContent(content)
         
-        // Since Service Extensions only work with remote push notifications,
-        // let's download and attach the video directly here (same logic as Service Extension)
-        let videoURL = "https://samplelib.com/lib/preview/mp4/sample-5s.mp4"
-        print("📹 [scheduleVideoNotification] Downloading video directly (Service Extension simulation)...")
-        await attachVideoToNotification(content: content, videoURLString: videoURL)
+        // This simulates what would happen with a remote push notification
+        // The Service Extension would handle the video download automatically
+        print("📹 [scheduleVideoNotification] This simulates a remote push notification...")
+        content.body = "📹 Use Push Notification Console to send real video notifications"
         
         // Add metadata for tracking
         content.userInfo.merge([
-            "demo_type": "local_video_simulation",
-            "message_id": "demo_video_\(Date().timeIntervalSince1970)",
-            "notification_type": "local_video"
+            "demo_type": "remote_push_simulation",
+            "message_id": "demo_local_\(Date().timeIntervalSince1970)",
+            "notification_type": "local_demo"
         ]) { (_, new) in new }
         
         print("📹 [scheduleVideoNotification] Content created:")
@@ -492,15 +491,15 @@ final class PushNotificationsDemoViewModel: ObservableObject {
         content.sound = .default
         content.categoryIdentifier = "VIDEO_CATEGORY"
         
-        // Download video for interactive notification (same as Service Extension would do)
-        let videoURL = "https://samplelib.com/lib/preview/mp4/sample-5s.mp4"
-        print("🎮 [scheduleInteractiveVideoNotification] Downloading video for interactive notification...")
-        await attachVideoToNotification(content: content, videoURLString: videoURL)
+        // This simulates what would happen with a remote push notification
+        // The Service Extension would handle the video download automatically
+        print("🎮 [scheduleInteractiveVideoNotification] This simulates a remote push notification...")
+        content.body = "🎮 Use Push Notification Console to send interactive video notifications"
 
         content.userInfo = [
-            "demo_type": "interactive_video_simulation",
+            "demo_type": "remote_push_simulation",
             "interactive": true,
-            "notification_type": "local_interactive_video"
+            "notification_type": "local_demo"
         ]
         
         print("🎮 [scheduleInteractiveVideoNotification] Content created:")
