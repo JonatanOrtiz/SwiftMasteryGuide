@@ -16,16 +16,10 @@ class NotificationService: UNNotificationServiceExtension {
     var bestAttemptContent: UNMutableNotificationContent?
     
     override func didReceive(_ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
-        
-        print("🎬 [NotificationService] didReceive called")
-        print("🎬 [NotificationService] Request identifier: \(request.identifier)")
-        print("🎬 [NotificationService] Content: \(request.content.userInfo)")
-        
         self.contentHandler = contentHandler
         bestAttemptContent = (request.content.mutableCopy() as? UNMutableNotificationContent)
         
         guard let bestAttemptContent = bestAttemptContent else {
-            print("🎬 [NotificationService] ❌ Failed to create mutable content")
             contentHandler(request.content)
             return
         }
@@ -33,14 +27,11 @@ class NotificationService: UNNotificationServiceExtension {
         // Extract video URL from notification payload
         guard let videoURLString = bestAttemptContent.userInfo["video_url"] as? String,
               let videoURL = URL(string: videoURLString) else {
-            print("🎬 [NotificationService] ❌ No video_url found in payload")
             // Still show notification without video
             bestAttemptContent.body = "📱 Notification received (no video URL)"
             contentHandler(bestAttemptContent)
             return
         }
-        
-        print("🎬 [NotificationService] ✅ Video URL found: \(videoURL)")
         
         // Download video asynchronously with timeout
         Task {
@@ -51,8 +42,6 @@ class NotificationService: UNNotificationServiceExtension {
     
     override func serviceExtensionTimeWillExpire() {
         // Called when extension is about to be terminated (30 second limit)
-        print("🎬 [NotificationService] ⏰ Service extension time will expire!")
-        
         if let contentHandler = contentHandler,
            let bestAttemptContent = bestAttemptContent {
             
@@ -65,8 +54,6 @@ class NotificationService: UNNotificationServiceExtension {
     }
     
     private func downloadAndAttachVideo(from url: URL, to content: UNMutableNotificationContent) async {
-        print("🎬 [NotificationService] 📥 Starting video download from: \(url)")
-        
         do {
             // Create URLSession with timeout configuration (25 seconds to leave buffer)
             let config = URLSessionConfiguration.default
@@ -81,15 +68,11 @@ class NotificationService: UNNotificationServiceExtension {
             let (data, response) = try await session.data(from: url)
             
             let downloadTime = Date().timeIntervalSince(startTime)
-            print("🎬 [NotificationService] ✅ Download completed in \(String(format: "%.2f", downloadTime))s")
-            print("🎬 [NotificationService] 📊 Data size: \(ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .binary))")
-            
+
             // Validate response
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw NotificationServiceError.invalidResponse
             }
-            
-            print("🎬 [NotificationService] 📡 HTTP Status: \(httpResponse.statusCode)")
             
             guard httpResponse.statusCode == 200 else {
                 throw NotificationServiceError.httpError(httpResponse.statusCode)
@@ -97,8 +80,7 @@ class NotificationService: UNNotificationServiceExtension {
             
             // Validate content type
             let contentType = httpResponse.mimeType ?? "unknown"
-            print("🎬 [NotificationService] 📄 Content-Type: \(contentType)")
-            
+
             guard contentType.hasPrefix("video/") else {
                 print("🎬 [NotificationService] ⚠️ Warning: Content-Type is not video/*, proceeding anyway")
                 return
@@ -110,16 +92,13 @@ class NotificationService: UNNotificationServiceExtension {
             let videoFileName = "notification_video_\(UUID().uuidString).\(fileExtension)"
             let tempVideoURL = tempDirectory.appendingPathComponent(videoFileName)
             
-            print("🎬 [NotificationService] 💾 Writing to: \(tempVideoURL.lastPathComponent)")
-            
             // Write data to temporary file
             try data.write(to: tempVideoURL)
             
             // Verify file was written
             let attributes = try FileManager.default.attributesOfItem(atPath: tempVideoURL.path)
             let fileSize = attributes[.size] as? Int64 ?? 0
-            print("🎬 [NotificationService] ✅ File written: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .binary))")
-            
+
             // Create notification attachment
             let attachmentOptions: [String: Any] = [
                 UNNotificationAttachmentOptionsTypeHintKey: determineTypeHint(from: contentType)
@@ -130,9 +109,7 @@ class NotificationService: UNNotificationServiceExtension {
                 url: tempVideoURL,
                 options: attachmentOptions
             )
-            
-            print("🎬 [NotificationService] 🎥 Video attachment created successfully")
-            
+
             // Update notification content
             content.attachments = [attachment]
             content.body = "📹 Video notification with \(fileExtension.uppercased()) content"
@@ -141,8 +118,6 @@ class NotificationService: UNNotificationServiceExtension {
             content.userInfo["download_time"] = downloadTime
             
         } catch {
-            print("🎬 [NotificationService] ❌ Download failed: \(error)")
-            
             // Provide fallback content
             content.body = "📱 Video notification (download failed)"
             content.userInfo["download_status"] = "failed"

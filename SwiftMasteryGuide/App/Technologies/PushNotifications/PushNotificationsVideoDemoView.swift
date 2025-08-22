@@ -7,7 +7,7 @@
 
 import SwiftUI
 import UserNotifications
-import AVFoundation
+@preconcurrency import AVFoundation
 
 /// A practical demo view for testing Push Notifications with Video functionality.
 /// Allows users to schedule test notifications and see the rich media notifications in action.
@@ -79,17 +79,6 @@ struct PushNotificationsVideoDemoView: View {
                         }
                     }
                     
-                    // Interactive Video Notification
-                    DemoButton(
-                        title: "🎮 Interactive Video Notification",
-                        subtitle: "With custom actions (Play/Pause/Share)",
-                        isEnabled: viewModel.canScheduleNotifications && !viewModel.isScheduling
-                    ) {
-                        Task {
-                            await viewModel.scheduleInteractiveVideoNotification()
-                        }
-                    }
-                    
                     // Interactive Rich Media Notification  
                     DemoButton(
                         title: "🎨 Interactive Rich Media",
@@ -98,17 +87,6 @@ struct PushNotificationsVideoDemoView: View {
                     ) {
                         Task {
                             await viewModel.scheduleInteractiveRichMediaNotification()
-                        }
-                    }
-                    
-                    // Fallback Test
-                    DemoButton(
-                        title: "⚠️ Test Download Failure",
-                        subtitle: "Simulates network error fallback",
-                        isEnabled: viewModel.canScheduleNotifications && !viewModel.isScheduling
-                    ) {
-                        Task {
-                            await viewModel.scheduleFailureTestNotification()
                         }
                     }
                 }
@@ -188,7 +166,7 @@ private struct DemoButton: View {
 
 /// ViewModel managing the demo functionality and notification scheduling
 @MainActor
-final class PushNotificationsDemoViewModel: ObservableObject {
+final class PushNotificationsDemoViewModel: ObservableObject, @unchecked Sendable {
     @Published var permissionStatus: UNAuthorizationStatus = .notDetermined
     @Published var statusMessage: String = ""
     @Published var isScheduling: Bool = false
@@ -237,56 +215,30 @@ final class PushNotificationsDemoViewModel: ObservableObject {
     }
     
     func checkPermissionStatus() async {
-        print("🔍 [checkPermissionStatus] Starting permission check...")
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         permissionStatus = settings.authorizationStatus
-        print("🔍 [checkPermissionStatus] Permission status: \(permissionStatus.rawValue) (\(permissionStatusText))")
-        print("🔍 [checkPermissionStatus] Alert setting: \(settings.alertSetting.rawValue)")
-        print("🔍 [checkPermissionStatus] Sound setting: \(settings.soundSetting.rawValue)")
-        print("🔍 [checkPermissionStatus] Badge setting: \(settings.badgeSetting.rawValue)")
-        
-        // Debug app icon info
-        if let appIconName = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String {
-            print("🔍 [checkPermissionStatus] App icon file: \(appIconName)")
-        }
-        if let iconFiles = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFiles") as? [String] {
-            print("🔍 [checkPermissionStatus] App icon files: \(iconFiles)")
-        }
-        if let iconDict = Bundle.main.object(forInfoDictionaryKey: "CFBundleIcons") as? [String: Any] {
-            print("🔍 [checkPermissionStatus] App icon dict: \(iconDict)")
-        }
-        
-        // Check bundle identifier
-        print("🔍 [checkPermissionStatus] Bundle ID: \(Bundle.main.bundleIdentifier ?? "unknown")")
     }
     
     func requestPermission() async {
-        print("🔐 [requestPermission] Starting permission request...")
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [
                 .alert, .sound, .badge, .provisional
             ])
             
-            print("🔐 [requestPermission] Permission granted: \(granted)")
-            
             if granted {
-                print("🔐 [requestPermission] Registering for remote notifications...")
                 UIApplication.shared.registerForRemoteNotifications()
                 statusMessage = "✅ Permission granted successfully!"
             } else {
-                print("🔐 [requestPermission] Permission denied by user")
                 statusMessage = "❌ Permission denied by user"
             }
             
             await checkPermissionStatus()
         } catch {
-            print("🔐 [requestPermission] Error requesting permission: \(error)")
             statusMessage = "❌ Error requesting permission: \(error.localizedDescription)"
         }
     }
     
     func setupNotificationActions() {
-        print("🎬 [setupNotificationActions] Setting up notification actions...")
         let playAction = UNNotificationAction(
             identifier: "PLAY_ACTION",
             title: "▶️ Play",
@@ -313,83 +265,49 @@ final class PushNotificationsDemoViewModel: ObservableObject {
         )
         
         UNUserNotificationCenter.current().setNotificationCategories([videoCategory])
-        print("🎬 [setupNotificationActions] Notification actions set up successfully")
     }
     
     func scheduleVideoNotification() async {
-        print("📹 [scheduleVideoNotification] Starting video notification scheduling...")
-        print("📹 [scheduleVideoNotification] Can schedule notifications: \(canScheduleNotifications)")
-        print("📹 [scheduleVideoNotification] Permission status: \(permissionStatus)")
-        
-        guard canScheduleNotifications else { 
-            print("📹 [scheduleVideoNotification] Cannot schedule - insufficient permissions")
-            return 
-        }
+        guard canScheduleNotifications else { return }
         
         isScheduling = true
         statusMessage = "📹 Scheduling video notification..."
-        print("📹 [scheduleVideoNotification] Creating notification content...")
         
         let content = UNMutableNotificationContent()
         content.title = "Video Message Received"
-        content.body = "📹 Tap to view your video message"
+        content.body = "📹 Use Push Notification Console to send real video notifications"
         content.sound = .default
         content.categoryIdentifier = "VIDEO_CATEGORY"
         
-        // Configure notification for proper icon display
         configureNotificationContent(content)
         
-        // This simulates what would happen with a remote push notification
-        // The Service Extension would handle the video download automatically
-        print("📹 [scheduleVideoNotification] This simulates a remote push notification...")
-        content.body = "📹 Use Push Notification Console to send real video notifications"
-        
-        // Add metadata for tracking
         content.userInfo.merge([
             "demo_type": "remote_push_simulation",
             "message_id": "demo_local_\(Date().timeIntervalSince1970)",
             "notification_type": "local_demo"
         ]) { (_, new) in new }
         
-        print("📹 [scheduleVideoNotification] Content created:")
-        print("   Title: \(content.title)")
-        print("   Body: \(content.body)")
-        print("   Category: \(content.categoryIdentifier)")
-        print("   UserInfo: \(content.userInfo)")
-        
         await scheduleNotification(content: content, identifier: "video_notification")
         
         isScheduling = false
         statusMessage = "✅ Video notification scheduled! Exit the app to see it."
-        print("📹 [scheduleVideoNotification] Video notification scheduling completed")
     }
     
     func scheduleLocalVideoNotification() async {
-        print("🎬 [scheduleLocalVideoNotification] Starting local video notification scheduling...")
-        print("🎬 [scheduleLocalVideoNotification] Can schedule notifications: \(canScheduleNotifications)")
-        
-        guard canScheduleNotifications else { 
-            print("🎬 [scheduleLocalVideoNotification] Cannot schedule - insufficient permissions")
-            return 
-        }
+        guard canScheduleNotifications else { return }
         
         isScheduling = true
         statusMessage = "🎬 Scheduling local video notification..."
-        print("🎬 [scheduleLocalVideoNotification] Creating notification content...")
         
-        // Create notification content with actual image attachment (since videos require Service Extension)
         let content = UNMutableNotificationContent()
         content.title = "Rich Media Demo"
         content.body = "📱 Notification with media attachment"
         content.sound = .default
         content.categoryIdentifier = "VIDEO_CATEGORY"
         
-        // Configure notification for proper icon display
         configureNotificationContent(content)
         
-        // Try to add an image attachment as a simpler demo
         do {
-            // Create a simple programmatic image
             let imageData = createDemoImage()
             let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("demo_image.png")
             try imageData.write(to: tempURL)
@@ -400,9 +318,8 @@ final class PushNotificationsDemoViewModel: ObservableObject {
                 options: [UNNotificationAttachmentOptionsTypeHintKey: "public.png"]
             )
             content.attachments = [attachment]
-            print("🎬 [scheduleLocalVideoNotification] Image attachment created successfully")
         } catch {
-            print("🎬 [scheduleLocalVideoNotification] Failed to create image attachment: \(error)")
+            // Silent fail
         }
         
         content.userInfo.merge([
@@ -410,18 +327,10 @@ final class PushNotificationsDemoViewModel: ObservableObject {
             "demo": true
         ]) { (_, new) in new }
         
-        print("🎬 [scheduleLocalVideoNotification] Content created:")
-        print("   Title: \(content.title)")
-        print("   Body: \(content.body)")
-        print("   Category: \(content.categoryIdentifier)")
-        print("   Attachments: \(content.attachments.count)")
-        print("   UserInfo: \(content.userInfo)")
-        
         await scheduleNotification(content: content, identifier: "local_image_notification")
         
         isScheduling = false
         statusMessage = "✅ Rich media notification scheduled!"
-        print("🎬 [scheduleLocalVideoNotification] Rich media notification scheduling completed")
     }
     
     private func createDemoImage() -> Data {
@@ -460,60 +369,12 @@ final class PushNotificationsDemoViewModel: ObservableObject {
     }
     
     private func configureNotificationContent(_ content: UNMutableNotificationContent) {
-        // Set bundle identifier to help with icon display
         if let bundleIdentifier = Bundle.main.bundleIdentifier {
             content.threadIdentifier = bundleIdentifier
         }
-        
-        // Force the app icon by setting the app identifier
         content.userInfo["app_id"] = Bundle.main.bundleIdentifier
-        
-        print("🔧 [configureNotificationContent] Bundle ID: \(Bundle.main.bundleIdentifier ?? "unknown")")
-        print("🔧 [configureNotificationContent] Thread ID: \(content.threadIdentifier)")
     }
     
-    func scheduleInteractiveVideoNotification() async {
-        print("🎮 [scheduleInteractiveVideoNotification] Starting interactive video notification scheduling...")
-        print("🎮 [scheduleInteractiveVideoNotification] Can schedule notifications: \(canScheduleNotifications)")
-        
-        guard canScheduleNotifications else { 
-            print("🎮 [scheduleInteractiveVideoNotification] Cannot schedule - insufficient permissions")
-            return 
-        }
-        
-        isScheduling = true
-        statusMessage = "🎮 Scheduling interactive notification..."
-        print("🎮 [scheduleInteractiveVideoNotification] Creating notification content...")
-        
-        let content = UNMutableNotificationContent()
-        content.title = "Interactive Video"
-        content.body = "🎮 Try the action buttons below!"
-        content.sound = .default
-        content.categoryIdentifier = "VIDEO_CATEGORY"
-        
-        // This simulates what would happen with a remote push notification
-        // The Service Extension would handle the video download automatically
-        print("🎮 [scheduleInteractiveVideoNotification] This simulates a remote push notification...")
-        content.body = "🎮 Use Push Notification Console to send interactive video notifications"
-
-        content.userInfo = [
-            "demo_type": "remote_push_simulation",
-            "interactive": true,
-            "notification_type": "local_demo"
-        ]
-        
-        print("🎮 [scheduleInteractiveVideoNotification] Content created:")
-        print("   Title: \(content.title)")
-        print("   Body: \(content.body)")
-        print("   Category: \(content.categoryIdentifier)")
-        print("   UserInfo: \(content.userInfo)")
-        
-        await scheduleNotification(content: content, identifier: "interactive_video_notification")
-        
-        isScheduling = false
-        statusMessage = "✅ Interactive video notification scheduled! Try the action buttons."
-        print("🎮 [scheduleInteractiveVideoNotification] Interactive video notification scheduling completed")
-    }
 
     private func createDemoVideoFrame() -> Data {
         let size = CGSize(width: 400, height: 300)
@@ -569,17 +430,10 @@ final class PushNotificationsDemoViewModel: ObservableObject {
     }
 
     func scheduleInteractiveRichMediaNotification() async {
-        print("🎨 [scheduleInteractiveRichMediaNotification] Starting interactive rich media notification scheduling...")
-        print("🎨 [scheduleInteractiveRichMediaNotification] Can schedule notifications: \(canScheduleNotifications)")
-        
-        guard canScheduleNotifications else { 
-            print("🎨 [scheduleInteractiveRichMediaNotification] Cannot schedule - insufficient permissions")
-            return 
-        }
+        guard canScheduleNotifications else { return }
         
         isScheduling = true
         statusMessage = "🎨 Creating interactive rich media notification..."
-        print("🎨 [scheduleInteractiveRichMediaNotification] Creating notification content...")
         
         let content = UNMutableNotificationContent()
         content.title = "🎨 Rich Media Interactive"
@@ -587,11 +441,8 @@ final class PushNotificationsDemoViewModel: ObservableObject {
         content.sound = .default
         content.categoryIdentifier = "VIDEO_CATEGORY"
         
-        // Configure notification for proper icon display
         configureNotificationContent(content)
         
-        // Create actual video file for rich media content
-        print("🎨 [scheduleInteractiveRichMediaNotification] Creating actual video file...")
         await createActualVideoFile(content: content)
         
         content.userInfo = [
@@ -600,67 +451,19 @@ final class PushNotificationsDemoViewModel: ObservableObject {
             "notification_type": "rich_media"
         ]
         
-        print("🎨 [scheduleInteractiveRichMediaNotification] Content created:")
-        print("   Title: \(content.title)")
-        print("   Body: \(content.body)")
-        print("   Category: \(content.categoryIdentifier)")
-        print("   UserInfo: \(content.userInfo)")
-        
         await scheduleNotification(content: content, identifier: "interactive_rich_media_notification")
         
         isScheduling = false
         statusMessage = "✅ Interactive rich media notification scheduled! Try the action buttons."
-        print("🎨 [scheduleInteractiveRichMediaNotification] Interactive rich media notification scheduling completed")
     }
     
-    func scheduleFailureTestNotification() async {
-        print("⚠️ [scheduleFailureTestNotification] Starting failure test notification scheduling...")
-        print("⚠️ [scheduleFailureTestNotification] Can schedule notifications: \(canScheduleNotifications)")
-        
-        guard canScheduleNotifications else { 
-            print("⚠️ [scheduleFailureTestNotification] Cannot schedule - insufficient permissions")
-            return 
-        }
-        
-        isScheduling = true
-        statusMessage = "⚠️ Scheduling failure test notification..."
-        print("⚠️ [scheduleFailureTestNotification] Creating notification content...")
-        
-        let content = UNMutableNotificationContent()
-        content.title = "Network Error Test"
-        content.body = "Testing fallback behavior"
-        content.sound = .default
-        content.categoryIdentifier = "VIDEO_CATEGORY"
-        
-        // This simulates what would happen with a remote push notification
-        // that has mutable-content flag and gets processed by Service Extension
-        content.userInfo = [
-            "video_url": "https://test.com.zzz",
-            "mutable-content": 1,
-            "notification_type": "remote_push_simulation"
-        ]
-        
-        print("⚠️ [scheduleFailureTestNotification] Content created:")
-        print("   Title: \(content.title)")
-        print("   Body: \(content.body)")
-        print("   Category: \(content.categoryIdentifier)")
-        print("   UserInfo: \(content.userInfo)")
-        
-        await scheduleNotification(content: content, identifier: "failure_test_notification")
-        
-        isScheduling = false
-        statusMessage = "✅ Failure test scheduled! Should show fallback content."
-        print("⚠️ [scheduleFailureTestNotification] Failure test notification scheduling completed")
-    }
     
     private func attachVideoToNotification(content: UNMutableNotificationContent, videoURLString: String) async {
         guard let videoURL = URL(string: videoURLString) else {
-            print("📹 [attachVideoToNotification] ❌ Invalid video URL: \(videoURLString)")
-            return
+                return
         }
         
         do {
-            print("📹 [attachVideoToNotification] 📥 Starting video download from: \(videoURL)")
             
             // Create URLSession with longer timeout for demo
             let config = URLSessionConfiguration.default
@@ -673,13 +476,10 @@ final class PushNotificationsDemoViewModel: ObservableObject {
             // Download video data
             let (data, response) = try await session.data(from: videoURL)
             
-            let downloadTime = Date().timeIntervalSince(startTime)
-            print("📹 [attachVideoToNotification] ✅ Download completed in \(String(format: "%.2f", downloadTime))s")
-            print("📹 [attachVideoToNotification] 📊 Data size: \(ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .binary))")
+            let _ = Date().timeIntervalSince(startTime)
             
             // Validate response
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                print("📹 [attachVideoToNotification] ❌ HTTP error: \((response as? HTTPURLResponse)?.statusCode ?? -1)")
                 return
             }
             
@@ -689,7 +489,6 @@ final class PushNotificationsDemoViewModel: ObservableObject {
             let videoFileName = "local_video_\(UUID().uuidString).\(fileExtension)"
             let tempVideoURL = tempDirectory.appendingPathComponent(videoFileName)
             
-            print("📹 [attachVideoToNotification] 💾 Writing to: \(tempVideoURL.lastPathComponent)")
             
             // Write data to temporary file
             try data.write(to: tempVideoURL)
@@ -701,26 +500,17 @@ final class PushNotificationsDemoViewModel: ObservableObject {
                 options: [UNNotificationAttachmentOptionsTypeHintKey: "public.movie"]
             )
             
-            print("📹 [attachVideoToNotification] 🎥 Video attachment created successfully")
             
             // Update notification content
             content.attachments = [attachment]
             content.body = "📹 Video notification with \(fileExtension.uppercased()) content"
             
         } catch {
-            print("📹 [attachVideoToNotification] ❌ Download failed: \(error)")
-            print("📹 [attachVideoToNotification] ❌ Error details: \(error.localizedDescription)")
-            if let urlError = error as? URLError {
-                print("📹 [attachVideoToNotification] ❌ URLError code: \(urlError.code.rawValue)")
-                print("📹 [attachVideoToNotification] ❌ URLError description: \(urlError.localizedDescription)")
-            }
             content.body = "📱 Video notification (download failed: \(error.localizedDescription))"
         }
     }
     
     private func scheduleNotification(content: UNMutableNotificationContent, identifier: String) async {
-        print("⏰ [scheduleNotification] Starting notification scheduling...")
-        print("⏰ [scheduleNotification] Identifier: \(identifier)")
         
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
         let finalIdentifier = "\(identifier)_\(Date().timeIntervalSince1970)"
@@ -730,37 +520,16 @@ final class PushNotificationsDemoViewModel: ObservableObject {
             trigger: trigger
         )
         
-        print("⏰ [scheduleNotification] Request details:")
-        print("   Final identifier: \(finalIdentifier)")
-        print("   Trigger interval: 5 seconds")
-        print("   Repeats: false")
         
         do {
-            print("⏰ [scheduleNotification] Adding notification request to UNUserNotificationCenter...")
             try await UNUserNotificationCenter.current().add(request)
-            print("⏰ [scheduleNotification] ✅ Notification successfully scheduled!")
             
-            // Check pending notifications
-            let pendingRequests = await UNUserNotificationCenter.current().pendingNotificationRequests()
-            print("⏰ [scheduleNotification] Total pending notifications: \(pendingRequests.count)")
-            for pendingRequest in pendingRequests {
-                print("   - \(pendingRequest.identifier): \(pendingRequest.content.title)")
-            }
-            
-            // Check delivered notifications
-            let deliveredNotifications = await UNUserNotificationCenter.current().deliveredNotifications()
-            print("⏰ [scheduleNotification] Total delivered notifications: \(deliveredNotifications.count)")
-            for deliveredNotification in deliveredNotifications {
-                print("   - \(deliveredNotification.request.identifier): \(deliveredNotification.request.content.title)")
-            }
         } catch {
-            print("⏰ [scheduleNotification] ❌ Failed to schedule notification: \(error)")
             statusMessage = "❌ Failed to schedule notification: \(error.localizedDescription)"
         }
     }
     
     private func createActualVideoFile(content: UNMutableNotificationContent) async {
-        print("📹 [createActualVideoFile] Creating real MP4 video file...")
         
         do {
             let tempDirectory = FileManager.default.temporaryDirectory
@@ -778,96 +547,95 @@ final class PushNotificationsDemoViewModel: ObservableObject {
                     options: [UNNotificationAttachmentOptionsTypeHintKey: "public.mpeg-4"]
                 )
                 
-                print("📹 [createActualVideoFile] ✅ Real video attachment created successfully")
                 
                 // Update notification content
                 content.attachments = [attachment]
                 content.body = "📹 Video notification with MP4 content"
             } else {
-                print("📹 [createActualVideoFile] ❌ Failed to generate MP4 video")
                 content.body = "📱 Video notification (video generation failed)"
             }
             
         } catch {
-            print("📹 [createActualVideoFile] ❌ Failed to create video attachment: \(error)")
             content.body = "📱 Video notification (attachment creation failed)"
         }
     }
     
     private func generateMP4Video(at url: URL) async -> Bool {
         return await withCheckedContinuation { continuation in
-            
-            // Create a video writer
-            guard let videoWriter = try? AVAssetWriter(outputURL: url, fileType: .mp4) else {
-                print("📹 [generateMP4Video] ❌ Could not create AVAssetWriter")
-                continuation.resume(returning: false)
-                return
-            }
-            
-            // Video settings
-            let videoSettings: [String: Any] = [
-                AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: 480,
-                AVVideoHeightKey: 360,
-                AVVideoCompressionPropertiesKey: [
-                    AVVideoAverageBitRateKey: 1000000
-                ]
-            ]
-            
-            let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
-            videoInput.expectsMediaDataInRealTime = true
-            
-            let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
-                assetWriterInput: videoInput,
-                sourcePixelBufferAttributes: [
-                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
-                    kCVPixelBufferWidthKey as String: 480,
-                    kCVPixelBufferHeightKey as String: 360
-                ]
-            )
-            
-            videoWriter.add(videoInput)
-            
-            guard videoWriter.startWriting() else {
-                print("📹 [generateMP4Video] ❌ Could not start writing")
-                continuation.resume(returning: false)
-                return
-            }
-            
-            videoWriter.startSession(atSourceTime: .zero)
-            
-            // Create a simple 2-second video
-            let frameDuration = CMTime(value: 1, timescale: 30) // 30 FPS
-            let totalFrames = 60 // 2 seconds at 30 FPS
-            
-            DispatchQueue.global(qos: .background).async {
-                for frameIndex in 0..<totalFrames {
-                    let frameTime = CMTime(value: Int64(frameIndex), timescale: 30)
-                    
-                    while !videoInput.isReadyForMoreMediaData {
-                        usleep(10000) // Wait 10ms
-                    }
-                    
-                    if let pixelBuffer = self.createPixelBuffer(frameIndex: frameIndex, totalFrames: totalFrames) {
-                        pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: frameTime)
-                    }
-                }
-                
-                videoInput.markAsFinished()
-                
-                videoWriter.finishWriting {
-                    let success = videoWriter.status == .completed
-                    print("📹 [generateMP4Video] Video generation completed. Success: \(success)")
-                    if !success, let error = videoWriter.error {
-                        print("📹 [generateMP4Video] ❌ Video writer error: \(error)")
-                    }
-                    continuation.resume(returning: success)
-                }
+            Task {
+                await self.performVideoGeneration(at: url, continuation: continuation)
             }
         }
     }
     
-    private func createPixelBuffer(frameIndex: Int, totalFrames: Int) -> CVPixelBuffer? {
+    private func performVideoGeneration(at url: URL, continuation: CheckedContinuation<Bool, Never>) async {
+        // Create a video writer
+        guard let videoWriter = try? AVAssetWriter(outputURL: url, fileType: .mp4) else {
+            continuation.resume(returning: false)
+            return
+        }
+        
+        // Video settings
+        let videoSettings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: 480,
+            AVVideoHeightKey: 360,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: 1000000
+            ]
+        ]
+        
+        let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
+        videoInput.expectsMediaDataInRealTime = true
+        
+        let pixelBufferAdaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: videoInput,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+                kCVPixelBufferWidthKey as String: 480,
+                kCVPixelBufferHeightKey as String: 360
+            ]
+        )
+        
+        videoWriter.add(videoInput)
+        
+        guard videoWriter.startWriting() else {
+            continuation.resume(returning: false)
+            return
+        }
+        
+        videoWriter.startSession(atSourceTime: .zero)
+        
+        // Create a simple 2-second video
+        let totalFrames = 60 // 2 seconds at 30 FPS
+        
+        await Task.detached {
+            for frameIndex in 0..<totalFrames {
+                let frameTime = CMTime(value: Int64(frameIndex), timescale: 30)
+                
+                while !videoInput.isReadyForMoreMediaData {
+                    try? await Task.sleep(nanoseconds: 10_000_000) // Wait 10ms
+                }
+                
+                if let pixelBuffer = self.createPixelBuffer(frameIndex: frameIndex, totalFrames: totalFrames) {
+                    pixelBufferAdaptor.append(pixelBuffer, withPresentationTime: frameTime)
+                }
+            }
+            
+            videoInput.markAsFinished()
+            
+            await withCheckedContinuation { finishContinuation in
+                videoWriter.finishWriting {
+                    finishContinuation.resume()
+                }
+            }
+            
+            let success = videoWriter.status == .completed
+            continuation.resume(returning: success)
+        }.value
+    }
+    
+    nonisolated private func createPixelBuffer(frameIndex: Int, totalFrames: Int) -> CVPixelBuffer? {
         let attrs = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
             kCVPixelBufferWidthKey as String: 480,
