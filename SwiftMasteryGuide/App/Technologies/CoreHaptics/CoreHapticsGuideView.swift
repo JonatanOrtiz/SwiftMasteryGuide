@@ -7,269 +7,359 @@
 
 import SwiftUI
 
-/// A SwiftUI screen that explains (step-by-step) how to build
-/// the SwiftUI + AVPlayer + MTAudioProcessingTap + Core Haptics demo.
-/// Content is in English to match your Medium tutorial.
-struct CoreHapticsGuideView: View {
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+struct CoreHapticsGuideView: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> SomeVideoViewController {
+        return SomeVideoViewController()
+    }
 
-                NavigationLink(destination: CoreHapticsView()) {
-                    Text("Open Core Haptics Demo")
-                        .padding()
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
-                .accessibilityLabel("Open Core Haptics demo")
+    func updateUIViewController(_ uiViewController: SomeVideoViewController, context: Context) {
+        // updateUIViewController
+    }
+}
 
-                Title("Audio‑Reactive Haptics in SwiftUI (iOS 15+)")
+import CoreHaptics
+import UIKit
+import AVFoundation
+import Accelerate
 
-                Subtitle("What you’ll build")
-                BodyText("""
-                A SwiftUI video player that analyzes the video’s audio track in real time using MTAudioProcessingTap and triggers Core Haptics patterns based on RMS intensity and dominant frequency.
-                """)
+class SomeVideoViewController: UIViewController {
+    private let videoView = VideoView()
+    private var audioAnalyzer: AudioHapticAnalyzer?
+    private var audioDownloadTask: URLSessionDownloadTask?
+    private var videoDuration: Double = 0.0
+    private var timeObserver: Any?
 
-                Subtitle("Requirements")
-                BulletList([
-                    "iOS 15+ (async/await + AVAsset async loading).",
-                    "Test on a real device (Core Haptics is not available in Simulator).",
-                    "Frameworks: SwiftUI, AVKit, CoreHaptics, Accelerate."
-                ])
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        videoView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(videoView)
+        NSLayoutConstraint.activate([
+            videoView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            videoView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            videoView.topAnchor.constraint(equalTo: view.topAnchor),
+            videoView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
 
-                DividerLine()
-
-                Subtitle("1) SwiftUI View")
-                BodyText("Use a simple container view that renders the AVPlayer via VideoPlayer and delegates logic to a ViewModel:")
-                CodeBlock("""
-                struct CoreHapticsView: View {
-                    @StateObject private var vm = CoreHapticsViewModel()
-                
-                    var body: some View {
-                        ZStack {
-                            Color.black.ignoresSafeArea()
-                            if let player = vm.player {
-                                VideoPlayer(player: player).ignoresSafeArea()
-                            }
-                        }
-                        .onAppear { vm.start() }
-                        .onDisappear { vm.stop() }
-                    }
-                }
-                """)
-
-                Subtitle("2) ViewModel")
-                BodyText("""
-                The ViewModel prepares AVAudioSession, creates an AVPlayerItem, attaches the Audio Tap (via audioMix), and starts playback. Buffers from the tap feed DSP (RMS + FFT) to decide Core Haptics parameters.
-                """)
-                CodeBlock("""
-                final class CoreHapticsViewModel: ObservableObject {
-                    @Published var player: AVPlayer?
-                    private var tap: AudioTap?
-                    private let url = URL(string: "https://download.blender.org/durian/trailer/sintel_trailer-480p.mp4")!
-                    private let haptics = HapticsManager()
-                    private var lastHapticTime = Date()
-                
-                    func start() {
-                        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-                        try? AVAudioSession.sharedInstance().setActive(true)
-                
-                        let item = AVPlayerItem(url: url)
-                        let tap = AudioTap()
-                        tap.onBuffer = { [weak self] blist, frames, sampleRate in
-                            guard let self else { return }
-                            let rms = Self.rms(from: blist, frames: frames)
-                            let freq = Self.dominantFrequency(from: blist, frames: frames, sampleRate: sampleRate)
-                            if rms > 0.2, Date().timeIntervalSince(self.lastHapticTime) > 0.1 {
-                                self.lastHapticTime = Date()
-                                let intensity = min(max((rms - 0.2) * 2, 0), 1)
-                                let sharpness: Float = freq < 60 ? 0.1 : (freq < 120 ? 0.3 : 1.0)
-                                self.haptics.play(intensity: intensity, sharpness: sharpness, duration: 0.5)
-                            }
-                        }
-                
-                        Task {
-                            let mix = await tap.makeAudioMix(for: item)
-                            await MainActor.run {
-                                item.audioMix = mix
-                                let p = AVPlayer(playerItem: item)
-                                p.isMuted = false
-                                self.player = p
-                                self.tap = tap
-                                p.play()
-                            }
-                        }
-                    }
-                
-                    func stop() {
-                        player?.pause()
-                        player = nil
-                        tap = nil
-                    }
-                
-                    // RMS using Accelerate (vDSP)
-                    private static func rms(from blist: UnsafePointer<AudioBufferList>, frames: CMItemCount) -> Float {
-                        let abl = blist.pointee
-                        guard abl.mNumberBuffers > 0, let mData = abl.mBuffers.mData else { return 0 }
-                        let count = Int(frames)
-                        let ptr = mData.bindMemory(to: Float.self, capacity: count)
-                        var sum: Float = 0
-                        vDSP_svesq(ptr, 1, &sum, vDSP_Length(count))
-                        return sqrt(sum / Float(count))
-                    }
-                
-                    // FFT to estimate dominant frequency
-                    private static func dominantFrequency(from blist: UnsafePointer<AudioBufferList>,
-                                                          frames: CMItemCount,
-                                                          sampleRate: Float64) -> Float {
-                        let n = Int(frames)
-                        guard n > 1 else { return 0 }
-                        let abl = blist.pointee
-                        guard abl.mNumberBuffers > 0, let mData = abl.mBuffers.mData else { return 0 }
-                        let inPtr = mData.bindMemory(to: Float.self, capacity: n)
-                
-                        var window = [Float](repeating: 0, count: n)
-                        vDSP_hann_window(&window, vDSP_Length(n), Int32(vDSP_HANN_NORM))
-                
-                        var signal = [Float](repeating: 0, count: n)
-                        vDSP_vmul(inPtr, 1, window, 1, &signal, 1, vDSP_Length(n))
-                
-                        let log2n = vDSP_Length(log2(Float(n)))
-                        guard let setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else { return 0 }
-                
-                        var real = [Float](repeating: 0, count: n/2)
-                        var imag = [Float](repeating: 0, count: n/2)
-                        var freqOut: Float = 0
-                
-                        real.withUnsafeMutableBufferPointer { rPtr in
-                            imag.withUnsafeMutableBufferPointer { iPtr in
-                                var split = DSPSplitComplex(realp: rPtr.baseAddress!, imagp: iPtr.baseAddress!)
-                                signal.withUnsafeBufferPointer { sPtr in
-                                    sPtr.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: n) { cpx in
-                                        vDSP_ctoz(cpx, 2, &split, 1, vDSP_Length(n/2))
-                                    }
-                                }
-                                vDSP_fft_zrip(setup, &split, 1, log2n, FFTDirection(FFT_FORWARD))
-                                var mags = [Float](repeating: 0, count: n/2)
-                                mags.withUnsafeMutableBufferPointer { mPtr in
-                                    vDSP_zvmags(&split, 1, mPtr.baseAddress!, 1, vDSP_Length(n/2))
-                                }
-                                var maxMag: Float = 0
-                                var maxIdx: vDSP_Length = 0
-                                vDSP_maxvi(&mags, 1, &maxMag, &maxIdx, vDSP_Length(n/2))
-                                freqOut = Float(maxIdx) * Float(sampleRate) / Float(n)
-                            }
-                        }
-                        vDSP_destroy_fftsetup(setup)
-                        return freqOut
-                    }
-                }
-                """)
-
-                Subtitle("3) Haptics Manager")
-                BodyText("A tiny wrapper around CHHapticEngine to play continuous events with intensity and sharpness derived from the audio:")
-                CodeBlock("""
-                final class HapticsManager {
-                    private let engine: CHHapticEngine?
-                    private let supports = CHHapticEngine.capabilitiesForHardware().supportsHaptics
-                    init() {
-                        if supports {
-                            engine = try? CHHapticEngine()
-                            try? engine?.start()
-                        } else {
-                            engine = nil
-                        }
-                    }
-                    func play(intensity: Float, sharpness: Float, duration: TimeInterval) {
-                        guard supports, let engine else {
-                            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                            return
-                        }
-                        let event = CHHapticEvent(eventType: .hapticContinuous,
-                                                  parameters: [
-                                                    .init(parameterID: .hapticIntensity, value: intensity),
-                                                    .init(parameterID: .hapticSharpness, value: sharpness)
-                                                  ],
-                                                  relativeTime: 0,
-                                                  duration: duration)
-                        if let pattern = try? CHHapticPattern(events: [event], parameters: []),
-                           let player = try? engine.makePlayer(with: pattern) {
-                            try? player.start(atTime: 0)
-                        }
-                    }
-                }
-                """)
-
-                Subtitle("4) Audio Tap")
-                BodyText("""
-                MTAudioProcessingTap intercepts the audio buffers of the AVPlayerItem. We attach it via an AVAudioMix input parameter.
-                """)
-                CodeBlock("""
-                final class AudioTap {
-                    var onBuffer: ((UnsafePointer<AudioBufferList>, CMItemCount, Float64) -> Void)?
-                    private var tap: MTAudioProcessingTap!
-                
-                    init() {
-                        var callbacks = MTAudioProcessingTapCallbacks(
-                            version: kMTAudioProcessingTapCallbacksVersion_0,
-                            clientInfo: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()),
-                            init: { tap, clientInfo, tapStorageOut in
-                                tapStorageOut.pointee = clientInfo
-                            },
-                            finalize: { _ in },
-                            prepare: { _, _, _ in },
-                            unprepare: { _ in },
-                            process: { tap, numberFrames, flags, bufferListInOut, numberFramesOut, flagsOut in
-                                var timeRange = CMTimeRange.invalid
-                                let status = MTAudioProcessingTapGetSourceAudio(
-                                    tap, numberFrames, bufferListInOut, flagsOut, &timeRange, numberFramesOut
-                                )
-                                guard status == noErr else { return }
-                                let storage = MTAudioProcessingTapGetStorage(tap)
-                                let me = Unmanaged<AudioTap>.fromOpaque(storage).takeUnretainedValue()
-                                let sampleRate = me.currentSampleRate(from: bufferListInOut) ?? 44100
-                                me.onBuffer?(bufferListInOut, numberFramesOut.pointee, sampleRate)
-                            }
-                        )
-                        var out: Unmanaged<MTAudioProcessingTap>?
-                        MTAudioProcessingTapCreate(kCFAllocatorDefault, &callbacks, kMTAudioProcessingTapCreationFlag_PostEffects, &out)
-                        tap = out!.takeRetainedValue()
-                    }
-                
-                    func makeAudioMix(for item: AVPlayerItem) async -> AVAudioMix {
-                        let tracks = (try? await item.asset.loadTracks(withMediaType: .audio)) ?? []
-                        guard let track = tracks.first else { return AVAudioMix() }
-                        let params = AVMutableAudioMixInputParameters(track: track)
-                        params.audioTapProcessor = tap
-                        let mix = AVMutableAudioMix()
-                        mix.inputParameters = [params]
-                        return mix
-                    }
-                
-                    private func currentSampleRate(from bufferList: UnsafePointer<AudioBufferList>) -> Float64? {
-                        let abl = bufferList.pointee
-                        guard abl.mNumberBuffers > 0 else { return nil }
-                        // If you need exact SR, derive from the audio format; many assets will be 44100 or 48000.
-                        return 44100
-                    }
-                }
-                """)
-                
-                DividerLine()
-
-                Subtitle("Notes & Tips")
-                BulletList([
-                    "Always test on a real device—Core Haptics doesn’t run on the simulator.",
-                    "Tune RMS threshold and haptic duration for your content.",
-                    "If you target iOS 13/14, replace async track loading with the synchronous API and remove `Task`/`await`."
-                ])
-
-                Spacer(minLength: 24)
+        let audioURL = URL(string: "https://sfpf-bills-hom.ppay.me/vehicle-hub-bff/campaigns/sauber/sauber_promo_audio_home.m4a")!
+        audioDownloadTask = downloadAudioFile(from: audioURL) { [weak self] localURL in
+            guard let self = self, let localURL = localURL else { return }
+            let analyzer = AudioHapticAnalyzer()
+            self.audioAnalyzer = analyzer
+            analyzer.playAndAnalyzeAudio(url: localURL)
+            self.videoView.play { [weak self] duration in
+                self?.videoDuration = duration
+                self?.setupVideoTimeObserver()
             }
-            .padding(20)
         }
-        .navigationTitle("How to Use")
-        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        videoView.pause()
+        audioAnalyzer?.stop()
+        audioAnalyzer = nil
+        audioDownloadTask?.cancel()
+        audioDownloadTask = nil
+        if let observer = timeObserver {
+            videoView.removeTimeObserver(observer)
+            timeObserver = nil
+        }
+    }
+
+    private func setupVideoTimeObserver() {
+        let interval = CMTime(seconds: 0.1, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
+        timeObserver = videoView.addPeriodicTimeObserver(forInterval: interval) { [weak self] time in
+            guard let self = self else { return }
+            let currentTime = CMTimeGetSeconds(time)
+            let isInLastThreeSeconds = currentTime >= (self.videoDuration - 3.0)
+            self.audioAnalyzer?.setVideoInLastSecond(isInLastThreeSeconds)
+        }
+    }
+
+    @discardableResult
+    private func downloadAudioFile(from url: URL, completion: @escaping (URL?) -> Void) -> URLSessionDownloadTask {
+        let task = URLSession.shared.downloadTask(with: url) { tempURL, _, error in
+            guard let tempURL = tempURL, error == nil else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            let localURL = FileManager.default.temporaryDirectory.appendingPathComponent(url.lastPathComponent)
+            try? FileManager.default.removeItem(at: localURL)
+            do {
+                try FileManager.default.copyItem(at: tempURL, to: localURL)
+                DispatchQueue.main.async { completion(localURL) }
+            } catch {
+                DispatchQueue.main.async { completion(nil) }
+            }
+        }
+        task.resume()
+        return task
+    }
+}
+
+// AVAudioEngine Analyzer
+final class AudioHapticAnalyzer {
+    private let engine = AVAudioEngine()
+    private let playerNode = AVAudioPlayerNode()
+    private var audioFile: AVAudioFile?
+    private var lastHapticTime = Date()
+    private var isVideoInLastSecond = false
+    private var hapticEngine: CHHapticEngine?
+    private var supportsCoreHaptics: Bool = {
+        CHHapticEngine.capabilitiesForHardware().supportsHaptics
+    }()
+
+    init() {
+        if supportsCoreHaptics {
+            do {
+                hapticEngine = try CHHapticEngine()
+                try hapticEngine?.start()
+            } catch {
+                print("Error instantiating CHHapticEngine: \(error)")
+            }
+        }
+    }
+
+    func playAndAnalyzeAudio(url: URL) {
+        do {
+            audioFile = try AVAudioFile(forReading: url)
+        } catch {
+            print("Error opening audio file: \(error)")
+            return
+        }
+        let format = audioFile!.processingFormat
+
+        engine.attach(playerNode)
+        engine.connect(playerNode, to: engine.mainMixerNode, format: format)
+
+        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            guard let self = self else { return }
+            let rms = self.calculateRMS(buffer: buffer)
+            let sampleRate = Float(format.sampleRate)
+            let freq = self.dominantFrequency(buffer: buffer, sampleRate: sampleRate)
+
+            if self.isVideoInLastSecond {
+                return
+            }
+
+            let freqIntensity = self.calculateFrequencyIntensity(freq: freq, rms: rms)
+
+            if freqIntensity > 0.4 && Date().timeIntervalSince(self.lastHapticTime) > 0.1 {
+                self.lastHapticTime = Date()
+                self.performFrequencyHaptic(freq: freq, intensity: freqIntensity)
+            }
+        }
+
+        do {
+            try engine.start()
+            if let audioFile = audioFile {
+                playerNode.scheduleFile(audioFile, at: nil)
+                playerNode.play()
+            }
+        } catch {
+            print("Error instantiating engine: \(error)")
+        }
+    }
+
+    private func calculateFrequencyIntensity(freq: Float, rms: Float) -> Float {
+        if freq <= 25 || freq >= 15000 {
+            return 0.0
+        }
+
+        let f = freq
+
+        if f >= 30 && f <= 199 {
+            let t = (f - 30) / 169
+            return 0.2 + 0.6 * (1 - t * t)
+        } else if f >= 200 && f <= 300 {
+            let t = (f - 200) / 100
+            return 0.1 + 0.2 * (1 - t)
+        } else if f >= 600 && f <= 6000 {
+            let t = (f - 600) / 5400
+            let baseIntensity = 1.0 - 0.8 * t
+            let wave1 = sin(t * Float.pi * 3) * 0.15
+            let wave2 = cos(t * Float.pi * 5) * 0.10
+            let wave3 = sin(t * Float.pi * 1.2) * 0.08
+            let variation = wave1 + wave2 + wave3
+            let finalIntensity = baseIntensity + variation
+            return max(0.15, min(1.0, finalIntensity))
+        } else if f >= 301 && f <= 599 {
+            let t = (f - 301) / (599 - 301)
+            let wave1 = sin(t * Float.pi * 1.5)
+            let wave2 = cos(t * Float.pi * 2.5) * 0.4
+            let wave3 = sin(t * Float.pi * 4) * 0.2
+            let combinedWave = wave1 + wave2 + wave3
+            let baseIntensity = 0.05 + 0.20 * ((combinedWave + 1.0) / 2.0)
+            let voiceRegion: Float = abs(t - 0.4) < 0.25 ? 0.8 : 1.0
+            return baseIntensity * voiceRegion
+        } else {
+            return 0.0
+        }
+    }
+
+    private func performFrequencyHaptic(freq: Float, intensity: Float) {
+        guard supportsCoreHaptics, let engine = hapticEngine else {
+            DispatchQueue.main.async {
+                let generator = UIImpactFeedbackGenerator(style: .heavy)
+                generator.impactOccurred()
+            }
+            return
+        }
+
+        let sharpness: Float = freq < 100 ? 0.5 : (freq >= 600 ? 1.0 : 0.6)
+        let duration: Double = freq < 100 ? 0.4 : (freq >= 600 ? 1.5 : 0.5)
+
+        let event = CHHapticEvent(
+            eventType: .hapticContinuous,
+            parameters: [
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
+                CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness)
+            ],
+            relativeTime: 0,
+            duration: duration
+        )
+
+        do {
+            let pattern = try CHHapticPattern(events: [event], parameters: [])
+            let player = try engine.makePlayer(with: pattern)
+            try player.start(atTime: 0)
+        } catch {
+            print("Error playing haptic: \(error)")
+        }
+    }
+
+    func dominantFrequency(buffer: AVAudioPCMBuffer, sampleRate: Float) -> Float {
+        guard let channelData = buffer.floatChannelData?.pointee else { return 0 }
+        let frameCount = Int(buffer.frameLength)
+        let log2n = vDSP_Length(log2(Float(frameCount)))
+        guard let fftSetup = vDSP_create_fftsetup(log2n, Int32(kFFTRadix2)) else { return 0 }
+
+        var windowedBuffer = [Float](repeating: 0, count: frameCount)
+        vDSP_hann_window(&windowedBuffer, vDSP_Length(frameCount), Int32(vDSP_HANN_NORM))
+        var windowedSignal = [Float](repeating: 0, count: frameCount)
+        vDSP_vmul(channelData, 1, windowedBuffer, 1, &windowedSignal, 1, vDSP_Length(frameCount))
+
+        var realp = [Float](repeating: 0, count: frameCount/2)
+        var imagp = [Float](repeating: 0, count: frameCount/2)
+
+        let frequency: Float = realp.withUnsafeMutableBufferPointer { realPtr in
+            imagp.withUnsafeMutableBufferPointer { imagPtr in
+                var splitComplex = DSPSplitComplex(realp: realPtr.baseAddress!, imagp: imagPtr.baseAddress!)
+                windowedSignal.withUnsafeBufferPointer { signalPtr in
+                    signalPtr.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: frameCount) { typeConvertedTransferBuffer in
+                        vDSP_ctoz(typeConvertedTransferBuffer, 2, &splitComplex, 1, vDSP_Length(frameCount/2))
+                    }
+                }
+                vDSP_fft_zrip(fftSetup, &splitComplex, 1, log2n, Int32(FFT_FORWARD))
+                var magnitudes = [Float](repeating: 0, count: frameCount/2)
+                vDSP_zvmags(&splitComplex, 1, &magnitudes, 1, vDSP_Length(frameCount/2))
+
+                var maxMag: Float = 0
+                var maxIndex: vDSP_Length = 0
+                vDSP_maxvi(&magnitudes, 1, &maxMag, &maxIndex, vDSP_Length(frameCount/2))
+                vDSP_destroy_fftsetup(fftSetup)
+
+                let dominantFreq = Float(maxIndex) * sampleRate / Float(frameCount)
+
+                return dominantFreq
+            }
+        }
+
+        return frequency
+    }
+
+    func setVideoInLastSecond(_ inLastSecond: Bool) {
+        isVideoInLastSecond = inLastSecond
+    }
+
+    func stop() {
+        playerNode.stop()
+        engine.stop()
+        engine.mainMixerNode.removeTap(onBus: 0)
+    }
+
+    private func calculateRMS(buffer: AVAudioPCMBuffer) -> Float {
+        guard let channelData = buffer.floatChannelData else { return 0 }
+        let channelDataValue = channelData.pointee
+        let frameLength = Int(buffer.frameLength)
+        var sum: Float = 0
+        for i in 0..<frameLength {
+            sum += channelDataValue[i] * channelDataValue[i]
+        }
+        return sqrt(sum / Float(frameLength))
+    }
+}
+
+final class VideoView: UIView {
+    private let player = AVPlayer()
+    private var playerLayer: AVPlayerLayer?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .black
+        setupPlayerLayer()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        backgroundColor = .black
+        setupPlayerLayer()
+    }
+
+    private func setupPlayerLayer() {
+        let layer = AVPlayerLayer(player: player)
+        layer.videoGravity = .resizeAspectFill
+        self.layer.addSublayer(layer)
+        playerLayer = layer
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        playerLayer?.frame = bounds
+    }
+
+    func play(completion: ((Double) -> Void)? = nil) {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            print("Error configuring AVAudioSession: \(error)")
+        }
+        let urlString = "https://sfpf-bills-hom.ppay.me/vehicle-hub-bff/campaigns/sauber/sauber_promo_video_home.mp4"
+        guard let url = URL(string: urlString) else { return }
+        let item = AVPlayerItem(url: url)
+        player.replaceCurrentItem(with: item)
+        player.isMuted = true
+
+        if let completion = completion {
+            item.addObserver(self, forKeyPath: "status", options: [.new], context: nil)
+            self.durationCallback = completion
+        }
+
+        player.play()
+    }
+
+    private var durationCallback: ((Double) -> Void)?
+
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        if keyPath == "status", let item = object as? AVPlayerItem, item.status == .readyToPlay {
+            let duration = CMTimeGetSeconds(item.duration)
+            durationCallback?(duration)
+            durationCallback = nil
+            item.removeObserver(self, forKeyPath: "status")
+        }
+    }
+
+    func addPeriodicTimeObserver(forInterval interval: CMTime, using block: @escaping (CMTime) -> Void) -> Any {
+        return player.addPeriodicTimeObserver(forInterval: interval, queue: .main, using: block)
+    }
+
+    func removeTimeObserver(_ observer: Any) {
+        player.removeTimeObserver(observer)
+    }
+
+    func pause() {
+        player.pause()
     }
 }

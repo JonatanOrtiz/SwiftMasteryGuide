@@ -16,6 +16,7 @@ struct TechnologiesListView: View {
         case gameController = "Game Controller"
         case gestureRecognition = "Gesture Recognition"
         case pushNotificationsVideo = "Push Notifications Video"
+        case coreMotion = "Core Motion"
         var id: String { rawValue }
     }
 
@@ -50,6 +51,8 @@ struct TechnologiesListView: View {
                 ARHandEffectsGuideView()
             case .pushNotificationsVideo:
                 PushNotificationsVideoGuideView()
+            case .coreMotion:
+                TiltMazeDemoView()
         }
     }
 }
