@@ -196,6 +196,12 @@ final class MotionManager {
     }
 
     private static func currentInterfaceOrientation() -> UIInterfaceOrientation {
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.sync {
+                return currentInterfaceOrientation()
+            }
+        }
+        
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         if let o = scenes.first?.interfaceOrientation {
             return o
@@ -270,7 +276,7 @@ final class MazeScene: SKScene, SKPhysicsContactDelegate {
     private var boundary: SKShapeNode?
 
     // Layout cache
-    private var contentInset: CGFloat = 24
+    private var contentInset: CGFloat = 32
     private var playableRect: CGRect = .zero
 
     // Physics categories
@@ -285,7 +291,7 @@ final class MazeScene: SKScene, SKPhysicsContactDelegate {
 
     // Tuning
     private struct Tuning {
-        static let ballRadius: CGFloat = 14
+        static let ballRadius: CGFloat = 16
         static let ballRestitution: CGFloat = 0.2
         static let ballLinearDamping: CGFloat = 0.45
         static let ballAngularDamping: CGFloat = 0.3
@@ -293,8 +299,9 @@ final class MazeScene: SKScene, SKPhysicsContactDelegate {
 
         static let gravityScale: CGFloat = 9.8 // SpriteKit expects m/s^2-ish
 
-        static let wallThickness: CGFloat = 10
-        static let goalRadius: CGFloat = 18
+        static let wallThickness: CGFloat = 12
+        static let goalRadius: CGFloat = 24
+        static let pathWidth: CGFloat = 70 // Minimum corridor width
     }
 
     // MARK: Init
@@ -431,14 +438,14 @@ final class MazeScene: SKScene, SKPhysicsContactDelegate {
 
         // Place ball and goal at deterministic spots within the maze
         let start = CGPoint(
-            x: playableRect.minX + 40,
-            y: playableRect.maxY - 40
+            x: playableRect.minX + Tuning.pathWidth / 2,
+            y: playableRect.maxY - Tuning.pathWidth / 2
         )
         ball?.position = start
 
         let end = CGPoint(
-            x: playableRect.maxX - 40,
-            y: playableRect.minY + 40
+            x: playableRect.maxX - Tuning.pathWidth / 2,
+            y: playableRect.minY + Tuning.pathWidth / 2
         )
         goal?.position = end
     }
@@ -446,15 +453,15 @@ final class MazeScene: SKScene, SKPhysicsContactDelegate {
     // MARK: Walls / Maze
 
     private func buildMazeWalls(in rect: CGRect) {
-        // Simple, readable “S” shaped path using segments.
-        // All walls are static physics bodies.
+        // Create a well-proportioned maze with clear pathways
         let t = Tuning.wallThickness
+        let pathW = Tuning.pathWidth
 
         func addWall(_ r: CGRect) {
             let node = SKShapeNode(rect: r)
-            node.fillColor = UIColor.secondaryLabel.withAlphaComponent(0.15)
-            node.strokeColor = UIColor.secondaryLabel.withAlphaComponent(0.35)
-            node.lineWidth = 1
+            node.fillColor = UIColor.secondaryLabel.withAlphaComponent(0.2)
+            node.strokeColor = UIColor.secondaryLabel.withAlphaComponent(0.5)
+            node.lineWidth = 2
 
             node.physicsBody = SKPhysicsBody(edgeLoopFrom: r)
             node.physicsBody?.isDynamic = false
@@ -465,62 +472,69 @@ final class MazeScene: SKScene, SKPhysicsContactDelegate {
             addChild(node)
         }
 
-        // Horizontal bands
-        let band1 = CGRect(
-            x: rect.minX + 20,
-            y: rect.midY + 70,
-            width: rect.width - 40,
+        // Create a zigzag pattern with proper proportions
+        let quarterHeight = rect.height / 4
+        
+        // Top horizontal barrier (forces right turn)
+        let topBarrier = CGRect(
+            x: rect.minX + pathW,
+            y: rect.maxY - quarterHeight,
+            width: rect.width * 0.6,
             height: t
         )
-        addWall(band1)
+        addWall(topBarrier)
 
-        let band2 = CGRect(
-            x: rect.minX + 20,
+        // Middle-left vertical barrier
+        let leftBarrier = CGRect(
+            x: rect.minX + pathW,
+            y: rect.midY - quarterHeight * 0.5,
+            width: t,
+            height: quarterHeight * 1.5
+        )
+        addWall(leftBarrier)
+
+        // Middle horizontal barrier (forces left turn)
+        let middleBarrier = CGRect(
+            x: rect.maxX - rect.width * 0.75,
             y: rect.midY,
-            width: rect.width - 120,
+            width: rect.width * 0.5,
             height: t
         )
-        addWall(band2)
+        addWall(middleBarrier)
 
-        let band3 = CGRect(
-            x: rect.minX + 100,
-            y: rect.midY - 70,
-            width: rect.width - 120,
+        // Bottom-right vertical barrier
+        let rightBarrier = CGRect(
+            x: rect.maxX - pathW - t,
+            y: rect.minY + pathW,
+            width: t,
+            height: quarterHeight * 1.2
+        )
+        addWall(rightBarrier)
+
+        // Bottom horizontal barrier (final approach)
+        let bottomBarrier = CGRect(
+            x: rect.minX + rect.width * 0.3,
+            y: rect.minY + quarterHeight * 0.8,
+            width: rect.width * 0.4,
             height: t
         )
-        addWall(band3)
+        addWall(bottomBarrier)
 
-        // Vertical pillars
-        let pillar1 = CGRect(
-            x: rect.midX - 80,
-            y: rect.midY - 70,
-            width: t,
-            height: 140
-        )
-        addWall(pillar1)
-
-        let pillar2 = CGRect(
-            x: rect.midX + 60,
-            y: rect.midY - 140,
-            width: t,
-            height: 140
-        )
-        addWall(pillar2)
-
-        // Optional hazards (holes) – small circles that “reset” the ball
+        // Add strategic hazards in wider areas
         addHazard(
             center: CGPoint(
-                x: rect.midX - 20,
-                y: rect.midY + 30
+                x: rect.maxX - pathW * 1.5,
+                y: rect.maxY - pathW
             ),
-            radius: 12
+            radius: 14
         )
+        
         addHazard(
             center: CGPoint(
-                x: rect.midX + 40,
-                y: rect.midY - 30
+                x: rect.minX + pathW * 2,
+                y: rect.minY + pathW * 1.5
             ),
-            radius: 12
+            radius: 14
         )
     }
 
@@ -603,8 +617,8 @@ final class MazeScene: SKScene, SKPhysicsContactDelegate {
 
         ball?.physicsBody?.velocity = .zero
         let start = CGPoint(
-            x: playableRect.minX + 40,
-            y: playableRect.maxY - 40
+            x: playableRect.minX + Tuning.pathWidth / 2,
+            y: playableRect.maxY - Tuning.pathWidth / 2
         )
 
         let shake = SKAction.sequence(

@@ -52,7 +52,7 @@ struct TechnologiesListView: View {
             case .pushNotificationsVideo:
                 PushNotificationsVideoGuideView()
             case .coreMotion:
-                TiltMazeDemoView()
+                CoreMotionGuideView()
         }
     }
 }
