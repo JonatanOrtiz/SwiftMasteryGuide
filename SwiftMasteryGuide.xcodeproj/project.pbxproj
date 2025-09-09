@@ -293,6 +293,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to classify objects in real time.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to demonstrate on-device speech transcription with Whisper (Core ML).";
 				INFOPLIST_KEY_NSMotionUsageDescription = "This app uses device motion to control the tilt maze game";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "This app needs access to save edited images.";
 				INFOPLIST_KEY_NSUserNotificationsUsageDescription = "This app uses notifications to demonstrate push notification features with rich media content including videos.";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
@@ -355,6 +356,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app needs camera access to classify objects in real time.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs microphone access to demonstrate on-device speech transcription with Whisper (Core ML).";
 				INFOPLIST_KEY_NSMotionUsageDescription = "This app uses device motion to control the tilt maze game";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "This app needs access to save edited images.";
 				INFOPLIST_KEY_NSUserNotificationsUsageDescription = "This app uses notifications to demonstrate push notification features with rich media content including videos.";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;

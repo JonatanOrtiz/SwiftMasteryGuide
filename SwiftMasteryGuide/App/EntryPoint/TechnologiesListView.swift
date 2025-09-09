@@ -17,6 +17,7 @@ struct TechnologiesListView: View {
         case gestureRecognition = "Gesture Recognition"
         case pushNotificationsVideo = "Push Notifications Video"
         case coreMotion = "Core Motion"
+        case coreImage = "Core Image"
         var id: String { rawValue }
     }
 
@@ -53,6 +54,8 @@ struct TechnologiesListView: View {
                 PushNotificationsVideoGuideView()
             case .coreMotion:
                 CoreMotionGuideView()
+            case .coreImage:
+                CoreImagePhotoFiltersDemoView()
         }
     }
 }
