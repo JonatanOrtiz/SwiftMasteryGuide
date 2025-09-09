@@ -55,7 +55,7 @@ struct TechnologiesListView: View {
             case .coreMotion:
                 CoreMotionGuideView()
             case .coreImage:
-                CoreImagePhotoFiltersDemoView()
+                CoreImageGuideView()
         }
     }
 }
