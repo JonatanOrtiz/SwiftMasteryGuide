@@ -63,8 +63,15 @@ final class CoreHapticsViewModel: ObservableObject {
     }
 
     func stop() {
+        // Mark tap as invalid and clear callback first to prevent crashes
+        tap?.invalidate()
+        
+        // Stop and clean up the player
         player?.pause()
+        player?.replaceCurrentItem(with: nil)
         player = nil
+        
+        // Clear the tap reference
         tap = nil
     }
 
@@ -161,15 +168,29 @@ final class HapticsManager {
 final class AudioTap {
     var onBuffer: ((UnsafePointer<AudioBufferList>, CMItemCount, Float64) -> Void)?
     private var tap: MTAudioProcessingTap!
+    private var isValid = true
+    
+    func invalidate() {
+        isValid = false
+        onBuffer = nil
+    }
+    
+    deinit {
+        invalidate()
+    }
 
     init() {
         var callbacks = MTAudioProcessingTapCallbacks(
             version: kMTAudioProcessingTapCallbacksVersion_0,
-            clientInfo: UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque()),
+            clientInfo: UnsafeMutableRawPointer(Unmanaged.passRetained(self).toOpaque()),
             init: { tap, clientInfo, tapStorageOut in
                 tapStorageOut.pointee = clientInfo
             },
-            finalize: { _ in },
+            finalize: { tap in
+                let storage = MTAudioProcessingTapGetStorage(tap)
+                let me = Unmanaged<AudioTap>.fromOpaque(storage)
+                me.release()
+            },
             prepare: { _, _, _ in },
             unprepare: { _ in },
             process: { (tap: MTAudioProcessingTap,
@@ -192,9 +213,12 @@ final class AudioTap {
 
                 let storage = MTAudioProcessingTapGetStorage(tap)
                 let me = Unmanaged<AudioTap>.fromOpaque(storage).takeUnretainedValue()
+                
+                // Check if object is still valid and callback exists
+                guard me.isValid, let onBuffer = me.onBuffer else { return }
+                
                 let sampleRate = me.currentSampleRate(from: bufferListInOut) ?? 44100
-
-                me.onBuffer?(bufferListInOut, numberFramesOut.pointee, sampleRate)
+                onBuffer(bufferListInOut, numberFramesOut.pointee, sampleRate)
             }
         )
         var out: Unmanaged<MTAudioProcessingTap>?
