@@ -196,8 +196,8 @@ final class PhotoFilterViewModel: ObservableObject {
 
     // Public state
     @Published private(set) var renderedPreview: UIImage?
-    @Published var splitModeEnabled: Bool = false
-    @Published var splitProgress: CGFloat = 0.5
+    @Published var splitModeEnabled: Bool = false { didSet { renderAsync() } }
+    @Published var splitProgress: CGFloat = 0.5 { didSet { renderSplitImmediate() } }
     @Published var selectedFilter: FilterKind = .sepia { didSet { renderAsync() } }
     @Published var intensity: Double = 0.7 { didSet { renderAsync() } }
 
@@ -331,6 +331,48 @@ final class PhotoFilterViewModel: ObservableObject {
         
         renderTask = task
         renderQueue.asyncAfter(deadline: .now() + 0.05, execute: task)
+    }
+    
+    private func renderSplitImmediate() {
+        guard splitModeEnabled else {
+            renderAsync()
+            return
+        }
+        
+        // Cancel previous render task
+        renderTask?.cancel()
+        
+        let source = originalCI
+        let filter = selectedFilter
+        let prog = splitProgress
+        let val = intensity
+
+        let task = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard let source else {
+                DispatchQueue.main.async { self.renderedPreview = nil }
+                return
+            }
+
+            let filtered = self.apply(filter: filter, to: source, amount: Float(val))
+            let outputCI = self.compositeSplit(original: source, filtered: filtered, progress: prog)
+
+            // Check if task was cancelled
+            guard !Task.isCancelled else { return }
+
+            // Limit render size to prevent memory issues
+            let targetRect = self.limitRenderSize(outputCI.extent.integral)
+            guard let cg = self.ciContext.createCGImage(outputCI, from: targetRect, format: .RGBA8, colorSpace: self.colorSpace) else { return }
+            let ui = UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up)
+
+            DispatchQueue.main.async { [weak self] in
+                guard !Task.isCancelled else { return }
+                self?.renderedPreview = ui
+            }
+        }
+        
+        renderTask = task
+        renderQueue.async(execute: task) // No delay for split progress changes
     }
     
     private func limitRenderSize(_ rect: CGRect) -> CGRect {
