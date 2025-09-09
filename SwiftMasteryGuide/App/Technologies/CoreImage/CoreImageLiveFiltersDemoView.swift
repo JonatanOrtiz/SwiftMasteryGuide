@@ -35,8 +35,7 @@ struct CoreImagePhotoFiltersDemoView: View {
                         .accessibilityLabel("Filtered image preview")
                         .overlay(alignment: .topLeading) {
                             if vm.splitModeEnabled {
-                                SplitMaskOverlay(progress: vm.splitProgress)
-                                    .allowsHitTesting(false)
+                                SplitMaskOverlay(progress: $vm.splitProgress)
                             }
                         }
                         .overlay(alignment: .bottomTrailing) {
@@ -159,11 +158,6 @@ struct CoreImagePhotoFiltersDemoView: View {
                     }
                     .toggleStyle(SwitchToggleStyle(tint: .accentColor))
                     .accessibilityLabel("Toggle before and after view")
-
-                    if vm.splitModeEnabled {
-                        SplitSlider(progress: $vm.splitProgress)
-                            .frame(height: 28)
-                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 12)
@@ -487,9 +481,9 @@ final class PhotoFilterViewModel: ObservableObject {
         let leftRect = CGRect(x: extent.minX, y: extent.minY, width: splitX, height: height)
         let rightRect = CGRect(x: extent.minX + splitX, y: extent.minY, width: width - splitX, height: height)
 
-        // Left side shows filtered image, right side shows original
-        let leftCropped = filtered.cropped(to: leftRect)
-        let rightCropped = original.cropped(to: rightRect)
+        // Left side shows original (before), right side shows filtered (after)
+        let leftCropped = original.cropped(to: leftRect)
+        let rightCropped = filtered.cropped(to: rightRect)
         
         // Composite them together without transformation to maintain original extent
         let result = leftCropped.composited(over: rightCropped)
@@ -575,16 +569,42 @@ private struct PlaceholderView: View {
 }
 
 private struct SplitMaskOverlay: View {
-    let progress: CGFloat
+    @Binding var progress: CGFloat
+    
     var body: some View {
         GeometryReader { geo in
             let x = max(0, min(geo.size.width, geo.size.width * progress))
-            Path { path in
-                path.move(to: CGPoint(x: x, y: 0))
-                path.addLine(to: CGPoint(x: x, y: geo.size.height))
+            
+            ZStack {
+                // Invisible tap area for the entire overlay
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let newProgress = max(0, min(1, value.location.x / geo.size.width))
+                                progress = newProgress
+                            }
+                    )
+                
+                // Visible split line
+                Path { path in
+                    path.move(to: CGPoint(x: x, y: 0))
+                    path.addLine(to: CGPoint(x: x, y: geo.size.height))
+                }
+                .stroke(Color.white.opacity(0.9), lineWidth: 3)
+                .shadow(color: .black.opacity(0.5), radius: 1, x: 0, y: 0)
+                
+                // Drag handle circle
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 20, height: 20)
+                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                    .position(x: x, y: geo.size.height / 2)
             }
-            .stroke(Color.white.opacity(0.9), lineWidth: 2)
         }
+        .accessibilityLabel("Drag to adjust before and after divider")
     }
 }
 
