@@ -133,7 +133,7 @@ struct CoreImagePhotoFiltersDemoView: View {
                 .padding(.horizontal, 16)
 
                 // Filter picker
-                FilterPicker(selection: $vm.selectedFilter)
+                FilterPicker(selection: $vm.selectedFilter, hasImage: vm.originalImage != nil)
 
                 // Intensity slider
                 if vm.selectedFilter.usesIntensity {
@@ -192,7 +192,7 @@ final class PhotoFilterViewModel: ObservableObject {
     @Published private(set) var renderedPreview: UIImage?
     @Published var splitModeEnabled: Bool = false { didSet { renderAsync() } }
     @Published var splitProgress: CGFloat = 0.5 { didSet { renderSplitImmediate() } }
-    @Published var selectedFilter: FilterKind = .sepia { didSet { renderAsync() } }
+    @Published var selectedFilter: FilterKind = .none { didSet { renderAsync() } }
     @Published var intensity: Double = 0.7 { didSet { renderAsync() } }
 
     // Original image
@@ -512,6 +512,7 @@ final class PhotoFilterViewModel: ObservableObject {
 
 private struct FilterPicker: View {
     @Binding var selection: PhotoFilterViewModel.FilterKind
+    let hasImage: Bool
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -522,7 +523,7 @@ private struct FilterPicker: View {
                     } label: {
                         Text(kind.title)
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(selection == kind ? .white : .textPrimary)
+                            .foregroundColor(selection == kind ? .white : (hasImage || kind == .none ? .textPrimary : .textSecondary))
                             .padding(.vertical, 8)
                             .padding(.horizontal, 12)
                             .background(selection == kind ? Color.accentColor : Color.cardBackground)
@@ -532,6 +533,7 @@ private struct FilterPicker: View {
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
+                    .disabled(!hasImage && kind != .none)
                     .accessibilityLabel("Select \(kind.title) filter")
                 }
             }
