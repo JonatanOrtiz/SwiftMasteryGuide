@@ -208,6 +208,9 @@ final class PhotoFilterViewModel: ObservableObject {
     private let ciContext: CIContext
     private let colorSpace = CGColorSpaceCreateDeviceRGB()
     private let renderQueue = DispatchQueue(label: "ci.photo.render.queue", qos: .userInitiated)
+    
+    // Debouncing for performance
+    private var renderTask: DispatchWorkItem?
 
     // Cache last CIImage to avoid recreating from UIImage each time
     private var originalCI: CIImage?
@@ -216,18 +219,47 @@ final class PhotoFilterViewModel: ObservableObject {
 
     init() {
         if let device = MTLCreateSystemDefaultDevice() {
-            ciContext = CIContext(mtlDevice: device)
+            ciContext = CIContext(mtlDevice: device, options: [
+                .cacheIntermediates: false,
+                .allowLowPower: true
+            ])
         } else {
-            ciContext = CIContext(options: [.useSoftwareRenderer: false])
+            ciContext = CIContext(options: [
+                .useSoftwareRenderer: false,
+                .cacheIntermediates: false
+            ])
         }
     }
 
     // MARK: Public API
 
     func setOriginalImage(_ image: UIImage?) {
-        originalImage = image
-        originalCI = image.flatMap { ciImage(from: $0) }
+        // Clear previous resources
+        originalImage = nil
+        originalCI = nil
+        renderedPreview = nil
+        
+        // Resize large images to prevent memory issues
+        let resizedImage = image.flatMap { resizeImageIfNeeded($0) }
+        originalImage = resizedImage
+        originalCI = resizedImage.flatMap { ciImage(from: $0) }
         renderAsync()
+    }
+    
+    private func resizeImageIfNeeded(_ image: UIImage) -> UIImage {
+        let maxDimension: CGFloat = 2048
+        let size = image.size
+        
+        guard max(size.width, size.height) > maxDimension else { return image }
+        
+        let scale = maxDimension / max(size.width, size.height)
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+        
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+        
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        return UIGraphicsGetImageFromCurrentImageContext() ?? image
     }
 
     func exportImage() -> UIImage? {
@@ -259,13 +291,16 @@ final class PhotoFilterViewModel: ObservableObject {
     // MARK: Rendering
 
     func renderAsync() {
+        // Cancel previous render task
+        renderTask?.cancel()
+        
         let source = originalCI
         let filter = selectedFilter
         let useSplit = splitModeEnabled
         let prog = splitProgress
         let val = intensity
 
-        renderQueue.async { [weak self] in
+        let task = DispatchWorkItem { [weak self] in
             guard let self else { return }
             guard let source else {
                 DispatchQueue.main.async { self.renderedPreview = nil }
@@ -280,12 +315,35 @@ final class PhotoFilterViewModel: ObservableObject {
                 outputCI = self.apply(filter: filter, to: source, amount: Float(val))
             }
 
-            let targetRect = outputCI.extent.integral
+            // Check if task was cancelled
+            guard !Task.isCancelled else { return }
+
+            // Limit render size to prevent memory issues
+            let targetRect = self.limitRenderSize(outputCI.extent.integral)
             guard let cg = self.ciContext.createCGImage(outputCI, from: targetRect, format: .RGBA8, colorSpace: self.colorSpace) else { return }
             let ui = UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up)
 
-            DispatchQueue.main.async { self.renderedPreview = ui }
+            DispatchQueue.main.async { [weak self] in
+                guard !Task.isCancelled else { return }
+                self?.renderedPreview = ui
+            }
         }
+        
+        renderTask = task
+        renderQueue.asyncAfter(deadline: .now() + 0.05, execute: task)
+    }
+    
+    private func limitRenderSize(_ rect: CGRect) -> CGRect {
+        // Limit to 4K resolution to prevent memory issues
+        let maxDimension: CGFloat = 4096
+        let scale = min(maxDimension / rect.width, maxDimension / rect.height, 1.0)
+        
+        if scale < 1.0 {
+            let scaledWidth = rect.width * scale
+            let scaledHeight = rect.height * scale
+            return CGRect(x: rect.minX, y: rect.minY, width: scaledWidth, height: scaledHeight)
+        }
+        return rect
     }
 
     private func currentOutputCI() -> CIImage? {
@@ -379,16 +437,23 @@ final class PhotoFilterViewModel: ObservableObject {
 
     private func compositeSplit(original: CIImage, filtered: CIImage, progress: CGFloat) -> CIImage {
         let p = max(0, min(1, progress))
-        let width = original.extent.width
-        let height = original.extent.height
+        let extent = original.extent
+        let width = extent.width
+        let height = extent.height
         let splitX = width * p
 
-        let leftRect = CGRect(x: 0, y: 0, width: splitX, height: height)
-        let rightRect = CGRect(x: splitX, y: 0, width: width - splitX, height: height)
+        let leftRect = CGRect(x: extent.minX, y: extent.minY, width: splitX, height: height)
+        let rightRect = CGRect(x: extent.minX + splitX, y: extent.minY, width: width - splitX, height: height)
 
-        let left = original.cropped(to: leftRect)
-        let right = filtered.cropped(to: rightRect).transformed(by: .init(translationX: splitX, y: 0))
-        return left.composited(over: right)
+        // Left side shows filtered image, right side shows original
+        let leftCropped = filtered.cropped(to: leftRect)
+        let rightCropped = original.cropped(to: rightRect)
+        
+        // Composite them together without transformation to maintain original extent
+        let result = leftCropped.composited(over: rightCropped)
+        
+        // Ensure the result has the same extent as the original
+        return result.cropped(to: extent)
     }
 
     // MARK: Utilities
