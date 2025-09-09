@@ -136,20 +136,19 @@ struct CoreImagePhotoFiltersDemoView: View {
                 FilterPicker(selection: $vm.selectedFilter, hasImage: vm.originalImage != nil)
 
                 // Intensity slider
-                if vm.selectedFilter.usesIntensity {
-                    HStack {
-                        Text("Intensity")
-                            .foregroundColor(.textPrimary)
-                            .font(.system(size: 14, weight: .semibold))
-                        Slider(value: $vm.intensity, in: 0...1)
-                            .accessibilityLabel("Filter intensity")
-                        Text(String(format: "%.2f", vm.intensity))
-                            .foregroundColor(.textSecondary)
-                            .font(.system(size: 13))
-                            .frame(width: 44, alignment: .trailing)
-                    }
-                    .padding(.horizontal, 16)
+                HStack {
+                    Text("Intensity")
+                        .foregroundColor(vm.selectedFilter.usesIntensity ? .textPrimary : .textSecondary)
+                        .font(.system(size: 14, weight: .semibold))
+                    Slider(value: $vm.intensity, in: 0...1)
+                        .disabled(!vm.selectedFilter.usesIntensity)
+                        .accessibilityLabel("Filter intensity")
+                    Text(String(format: "%.2f", vm.intensity))
+                        .foregroundColor(vm.selectedFilter.usesIntensity ? .textSecondary : .textSecondary.opacity(0.5))
+                        .font(.system(size: 13))
+                        .frame(width: 44, alignment: .trailing)
                 }
+                .padding(.horizontal, 16)
 
                 HStack(spacing: 12) {
                     Toggle(isOn: $vm.splitModeEnabled) {
@@ -257,8 +256,10 @@ final class PhotoFilterViewModel: ObservableObject {
     }
 
     func exportImage() -> UIImage? {
-        guard let ci = currentOutputCI() else { return nil }
-        guard let cg = ciContext.createCGImage(ci, from: ci.extent, format: .RGBA8, colorSpace: colorSpace) else { return nil }
+        guard let source = originalCI else { return nil }
+        // Always export the full filtered image, never the split view
+        let filteredCI = apply(filter: selectedFilter, to: source, amount: Float(intensity))
+        guard let cg = ciContext.createCGImage(filteredCI, from: filteredCI.extent, format: .RGBA8, colorSpace: colorSpace) else { return nil }
         return UIImage(cgImage: cg, scale: UIScreen.main.scale, orientation: .up)
     }
 
