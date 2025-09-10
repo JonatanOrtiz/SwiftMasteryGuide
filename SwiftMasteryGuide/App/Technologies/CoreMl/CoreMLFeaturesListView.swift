@@ -10,16 +10,7 @@ import SwiftUI
 struct CoreMLFeaturesListView: View {
     private enum CoreMLFeature: String, CaseIterable, Identifiable {
         case imageClassification = "Image Classification"
-        case objectDetection = "Object Detection"
-        case imageSegmentation = "Image Segmentation"
-        case faceAndExpressionRecognition = "Face And Expression Recognition"
-        case textRecognition = "Text Recognition" // OCR
         case speechToText = "Speech To Text"
-        case soundClassification = "Sound Classification"
-        case speechSentimentAnalysis = "Speech Sentiment Analysis"
-        case machineTranslation = "Machine Translation"
-        case augmentedRealityFilters = "Augmented Reality Filters"
-        case onDeviceAssistants = "On Device Assistants"
 
         var id: String { rawValue }
     }
@@ -44,36 +35,8 @@ struct CoreMLFeaturesListView: View {
         switch feature {
             case .imageClassification:
                 LiveImageClassificationGuideView()
-
-            case .objectDetection:
-                ComingSoonView(featureName: feature.rawValue)
-
-            case .imageSegmentation:
-                ComingSoonView(featureName: feature.rawValue)
-
-            case .faceAndExpressionRecognition:
-                ComingSoonView(featureName: feature.rawValue)
-
-            case .textRecognition:
-                ComingSoonView(featureName: feature.rawValue)
-
             case .speechToText:
                 SpeechToTextGuideView()
-
-            case .soundClassification:
-                ComingSoonView(featureName: feature.rawValue)
-
-            case .speechSentimentAnalysis:
-                ComingSoonView(featureName: feature.rawValue)
-
-            case .machineTranslation:
-                ComingSoonView(featureName: feature.rawValue)
-
-            case .augmentedRealityFilters:
-                ComingSoonView(featureName: feature.rawValue)
-
-            case .onDeviceAssistants:
-                ComingSoonView(featureName: feature.rawValue)
         }
     }
 }
